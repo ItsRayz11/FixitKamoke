@@ -5,7 +5,15 @@ Master brief: see [MASTER_PROMPT_SUMMARY.md](MASTER_PROMPT_SUMMARY.md). Update t
 Last updated: 2026-10-24
 
 ## Honest state
-Nothing customer-facing is built yet. Only the empty Next.js starter is being scaffolded.
+Backend foundation exists and is tested. **No customer-facing pages or admin UI are built yet** (the app still shows the Next.js starter page).
+
+Built and verified (2026-10-25): `npm test` 27/27 pass (20 unit, 7 integration on embedded Postgres), `tsc --noEmit` clean, `eslint` clean, baseline `next build` passed on the starter.
+- `src/lib/domain/*`: money (integer PKR), Pakistani phone normalisation, shipping zones/quotes, pricing + coupons, order state machine.
+- `db/migrations/001_init.sql`: full schema (products, orders, order_items snapshot, status history, repairs, blog, admin, audit, consent, outbox, settings).
+- `src/lib/db`: PGlite (dev/test) and postgres.js (DATABASE_URL) adapters, migration runner.
+- `src/lib/orders/create-order.ts`: server-authoritative totals, atomic stock decrement, idempotency, coupon + shipping + COD rules, outbox row.
+
+Next.js 16 notes (from bundled docs): `middleware.ts` is now `proxy.ts`; `cookies()` is async.
 
 ## Phase checklist
 | # | Phase | Status |
@@ -15,8 +23,8 @@ Nothing customer-facing is built yet. Only the empty Next.js starter is being sc
 | 1 | Architecture decisions | Drafted (below), not yet in DECISION_LOG |
 | 2 | Design system | Not started |
 | 3-4 | Site map, homepage, search | Not started |
-| 5 | Catalogue and inventory | Not started |
-| 6-7 | Cart, checkout, shipping | Not started |
+| 5 | Catalogue and inventory | Schema done; queries/UI not started |
+| 6-7 | Cart, checkout, shipping | Server order logic done + tested; cart/checkout UI not started |
 | 8 | Repair workflow | Not started |
 | 9 | WhatsApp / Maps / social config | Not started |
 | 10 | Retention | Not started |
