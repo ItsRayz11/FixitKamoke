@@ -112,3 +112,15 @@ export function renderRepairEmail(kind: string, d: RepairEmailData, ctx: EmailCo
   }
   return null;
 }
+
+export function renderPasswordReset(token: string, ctx: EmailContext): Rendered {
+  const link = `${ctx.baseUrl}/account/reset?token=${encodeURIComponent(token)}`;
+  const subject = "Reset your Fixit password";
+  const html = shell(ctx, subject, p("We received a request to reset the password on your Fixit account.") + btn(link, "Choose a new password") +
+    p(`<span style="font-size:14px;color:#475569">This link works once and expires in 1 hour. If you did not ask for this, you can ignore this email and your password will stay the same.</span>`));
+  return { subject, html, text: `We received a request to reset your Fixit password.
+
+Choose a new password (link works once, expires in 1 hour): ${link}
+
+If you did not ask for this, ignore this email.` };
+}

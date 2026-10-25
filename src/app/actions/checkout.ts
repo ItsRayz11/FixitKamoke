@@ -7,6 +7,8 @@ import { getProductsByIds, effectivePrice } from "@/lib/catalog";
 import { checkoutSchema, CheckoutError, createOrder, getShippingConfig } from "@/lib/orders/create-order";
 import { quoteShipping } from "@/lib/domain/shipping";
 import { rateLimit } from "@/lib/rate-limit";
+import { getCustomer } from "@/lib/auth/session";
+import { listAddresses } from "@/lib/customers/customers";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { ZodError } from "zod";
 
@@ -63,7 +65,8 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   }
   try {
     const parsed = checkoutSchema.parse(input);
-    const order = await createOrder(await getDb(), parsed);
+    const customer = await getCustomer(); // from the session cookie, never from the form
+    const order = await createOrder(await getDb(), parsed, { customerId: customer?.id });
     if (!order.trackingToken) {
       // Idempotent retry: order exists but the plaintext token is only ever shown once.
       return { ok: false, code: "duplicate", message: `Your order ${order.orderNumber} was already received. Please check your confirmation or contact us.` };
@@ -80,4 +83,14 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
     console.error("placeOrder failed", e instanceof Error ? e.message : e);
     return { ok: false, code: "server_error", message: "Something went wrong placing your order. Nothing was charged. Please try again." };
   }
+}
+
+export interface CheckoutPrefill { name: string; phone: string; email: string; city: string; area: string; address: string }
+
+/** Pre-fills the checkout form for a signed-in customer from their account and default saved address. */
+export async function getCheckoutPrefill(): Promise<CheckoutPrefill | null> {
+  const c = await getCustomer();
+  if (!c) return null;
+  const a = (await listAddresses(await getDb(), c.id))[0];
+  return { name: a?.recipientName ?? c.name, phone: a?.phone ?? c.phone ?? "", email: c.email, city: a?.city ?? "", area: a?.area ?? "", address: a?.address ?? "" };
 }

@@ -14,7 +14,7 @@ Owner approvals (2026-10-25): build everything in this list, including customer 
 | F | Blog: model, admin editor, public pages, 4 original articles (drafts for owner review) | DONE (2026-10-25) |
 | G | Email: Resend adapter, outbox processor, templates, admin email status | DONE (2026-10-25); implemented but awaiting Resend credentials, tested with an injected sender only |
 | H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | DONE (2026-10-25) |
-| I | Customer accounts: register/login, order history, addresses, wishlist, deletion request | todo |
+| I | Customer accounts: register/login, order history, addresses, wishlist, reviews, password reset, deletion | DONE (2026-10-25) |
 | J | Retention: recently viewed, compatible accessories, consent-based email signup + unsubscribe, privacy-minimal analytics events | todo |
 | K | Payments layer: provider interface, bank-transfer details, payment status, gateway adapters disabled | todo |
 | L | shadcn/ui primitives (dialog, sheet, accordion), Motion animations, reduced-motion | todo |

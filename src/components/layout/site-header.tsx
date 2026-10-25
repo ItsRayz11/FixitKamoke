@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCart } from "@/components/cart/cart-store";
 
-export function SiteHeader({ whatsapp }: { whatsapp: string | null }) {
+export function SiteHeader({ whatsapp, account }: { whatsapp: string | null; account: { name: string } | null }) {
   const { count, ready } = useCart();
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-ink text-white">
@@ -28,6 +28,7 @@ export function SiteHeader({ whatsapp }: { whatsapp: string | null }) {
               WhatsApp
             </a>
           )}
+          <Link href={account ? "/account" : "/account/login"} className="hidden min-h-11 items-center rounded-full px-3 text-sm font-semibold hover:text-cyan sm:inline-flex">{account ? "Account" : "Sign in"}</Link>
           <Link href="/cart" className="relative inline-flex min-h-11 items-center rounded-full bg-accent px-4 text-sm font-semibold hover:bg-accent-strong">
             Cart
             <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-accent" data-testid="cart-count">{ready ? count : 0}</span>
@@ -40,6 +41,7 @@ export function SiteHeader({ whatsapp }: { whatsapp: string | null }) {
         <Link href="/repairs" className="py-1">Repairs</Link>
         <Link href="/blog" className="py-1">Guides</Link>
         <Link href="/contact" className="py-1">Contact</Link>
+        <Link href={account ? "/account" : "/account/login"} className="py-1 sm:hidden">{account ? "Account" : "Sign in"}</Link>
         <Link href="/shop" className="py-1 sm:hidden">Search</Link>
       </nav>
     </header>

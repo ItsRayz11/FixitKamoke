@@ -1,6 +1,7 @@
 import { site } from "@/config/site";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getStore } from "@/lib/settings";
+import { getCustomer } from "@/lib/auth/session";
 import { CartToast } from "@/components/cart/cart-toast";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /** Public storefront chrome. The admin area and account pages use their own layouts. */
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const store = await getStore();
+  const [store, customer] = await Promise.all([getStore(), getCustomer()]);
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
@@ -23,7 +24,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
       {store.announcement && (
         <div className="bg-accent px-4 py-1.5 text-center text-xs font-semibold text-white">{store.announcement}</div>
       )}
-      <SiteHeader whatsapp={whatsappLink({ kind: "general" }, store.whatsappNumber)} />
+      <SiteHeader whatsapp={whatsappLink({ kind: "general" }, store.whatsappNumber)} account={customer ? { name: customer.name } : null} />
       <main id="main" className="flex-1">{children}</main>
       <SiteFooter />
       <CartToast />

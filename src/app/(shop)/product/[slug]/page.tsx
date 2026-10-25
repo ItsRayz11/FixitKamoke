@@ -8,6 +8,12 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { Price } from "@/components/ui/price";
 import { AddToCartButton } from "@/components/cart/add-to-cart";
 import { StockBadge, ProductCard } from "@/components/product/product-card";
+import { getCustomer } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
+import { approvedReviews, canReview } from "@/lib/reviews";
+import { KeepForm } from "@/components/admin/keep-form";
+import { toggleWishlistAction } from "../../account/actions";
+import { submitReviewAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +28,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const p = await getProductBySlug(slug);
   if (!p) notFound();
-  const related = await relatedProducts(p);
+  const db = await getDb();
+  const customer = await getCustomer();
+  const [related, reviews, reviewState, saved] = await Promise.all([
+    relatedProducts(p),
+    approvedReviews(db, p.id),
+    customer ? canReview(db, customer.id, p.id) : Promise.resolve(null),
+    customer ? db.query("select 1 from wishlist_items where customer_id = $1 and product_id = $2", [customer.id, p.id]).then((r) => r.length > 0) : Promise.resolve(false),
+  ]);
   const url = `${site.baseUrl}/product/${p.slug}`;
   const store = await getStore();
   const wa = whatsappLink({ kind: "product", name: p.name, url }, store.whatsappNumber);
@@ -95,6 +108,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <p className="mt-4 text-sm text-muted">
             Delivery fee and time are shown at checkout before you confirm your order. Stock is re-checked when you place the order.
           </p>
+          <form action={toggleWishlistAction} className="mt-3">
+            <input type="hidden" name="productId" value={p.id} /><input type="hidden" name="slug" value={p.slug} />
+            <button className="min-h-11 text-sm font-semibold text-accent underline">{saved ? "Saved to your wishlist (remove)" : "Save to wishlist"}</button>
+          </form>
           {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center font-semibold text-accent underline">Ask about this product on WhatsApp</a>}
           {p.warrantyInfo && <p className="mt-4 text-sm"><strong>Warranty:</strong> {p.warrantyInfo}</p>}
         </div>
@@ -122,6 +139,38 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           )}
         </section>
       )}
+
+      <section className="mt-12" aria-labelledby="reviews">
+        <h2 id="reviews" className="text-lg font-bold">Customer reviews</h2>
+        {sp.ok && <p role="status" className="mt-3 rounded-[var(--radius-sm)] bg-emerald-50 p-3 text-sm font-semibold text-ok">{sp.ok}</p>}
+        {sp.error && <p role="alert" className="mt-3 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm font-semibold text-danger">{sp.error}</p>}
+        {reviews.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No reviews yet. Reviews come only from customers who received this product.</p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {reviews.map((r) => (
+              <li key={r.id} className="rounded-[var(--radius-md)] border border-line bg-surface p-4 text-sm">
+                <p><span aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span> <strong className="ml-2">{r.authorName}</strong> <span className="text-xs text-muted">· verified purchase</span></p>
+                <p className="mt-1 whitespace-pre-wrap">{r.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {reviewState === "yes" && (
+          <KeepForm action={submitReviewAction} className="mt-4 space-y-3 rounded-[var(--radius-md)] border border-line bg-surface p-4">
+            <h3 className="font-bold">Write a review</h3>
+            <input type="hidden" name="productId" value={p.id} /><input type="hidden" name="slug" value={p.slug} />
+            <div><label htmlFor="rating" className="text-sm font-semibold">Rating</label>
+              <select id="rating" name="rating" className="mt-1 h-11 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm" defaultValue="">
+                <option value="" disabled>Choose…</option>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n === 1 ? "" : "s"}</option>)}
+              </select></div>
+            <div><label htmlFor="body" className="text-sm font-semibold">Your review</label><textarea id="body" name="body" required rows={4} className="mt-1 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2 text-sm" /></div>
+            <button className="min-h-11 rounded-[var(--radius-sm)] bg-accent px-5 text-sm font-semibold text-white">Submit review</button>
+            <p className="text-xs text-muted">Reviews are checked by our team before they appear.</p>
+          </KeepForm>
+        )}
+        {reviewState === "not_purchased" && <p className="mt-3 text-xs text-muted">Signed-in customers who have received this product can leave a review.</p>}
+      </section>
 
       {related.length > 0 && (
         <section className="mt-12" aria-labelledby="rel">

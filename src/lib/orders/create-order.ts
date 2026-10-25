@@ -44,7 +44,8 @@ export async function getShippingConfig(db: Pick<Db, "query">): Promise<Shipping
   return rows[0]?.value ?? null;
 }
 
-export async function createOrder(db: Db, raw: unknown): Promise<CreatedOrder> {
+/** `opts.customerId` comes from the signed-in session on the server, never from the browser form. */
+export async function createOrder(db: Db, raw: unknown, opts: { customerId?: string } = {}): Promise<CreatedOrder> {
   const input = checkoutSchema.parse(raw);
   const phone = normalizePkMobile(input.phone);
   if (!phone) throw new CheckoutError("invalid_phone", "Please enter a valid Pakistani mobile number.");
@@ -108,10 +109,10 @@ export async function createOrder(db: Db, raw: unknown): Promise<CreatedOrder> {
     const token = crypto.randomBytes(24).toString("base64url");
     const [{ id: orderId }] = await q.query<{ id: string }>(
       `insert into orders (order_number, idempotency_key, tracking_token_hash, customer_name, phone, email, city, area, address, notes,
-         payment_method, coupon_code, subtotal, discount, shipping_fee, total, shipping_status, shipping_policy_version)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning id`,
+         payment_method, coupon_code, subtotal, discount, shipping_fee, total, shipping_status, shipping_policy_version, customer_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) returning id`,
       [orderNumber, input.idempotencyKey, sha256(token), input.customerName, phone, input.email ?? null, input.city, input.area ?? null, input.address, input.notes ?? null,
-        input.paymentMethod, couponCode, totals.subtotal, totals.discount, totals.shippingFee, totals.total, quote.status, config.version],
+        input.paymentMethod, couponCode, totals.subtotal, totals.discount, totals.shippingFee, totals.total, quote.status, config.version, opts.customerId ?? null],
     );
     for (const l of lines) {
       await q.query(

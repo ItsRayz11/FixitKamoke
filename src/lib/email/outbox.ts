@@ -1,6 +1,6 @@
 import type { Db } from "@/lib/db";
 import { REPAIR_LABEL, type RepairStatus } from "@/lib/domain/repair-state";
-import { renderOrderEmail, renderRepairEmail, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
+import { renderOrderEmail, renderPasswordReset, renderRepairEmail, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
 
 export interface EmailConfig { apiKey: string; from: string }
 export type SendFn = (msg: { to: string; subject: string; html: string; text: string; idempotencyKey: string }) => Promise<void>;
@@ -29,10 +29,13 @@ export function resendSender(cfg: EmailConfig, fetchImpl: typeof fetch = fetch):
 
 const MAX_ATTEMPTS = 5;
 const EXPIRE_AFTER_MS = 7 * 24 * 3600_000;
+/** Security emails go stale quickly: a reset link must not arrive hours later. */
+const expireAfter = (kind: string) => (kind === "password_reset" ? 3600_000 : EXPIRE_AFTER_MS);
 
 interface OutboxRow { id: string; kind: string; recipient: string; payload: Record<string, string>; attempts: number; dedupe_key: string; created_at: Date | string }
 
 async function render(db: Db, row: OutboxRow, ctx: EmailContext): Promise<Rendered | null> {
+  if (row.kind === "password_reset") return row.payload.resetToken ? renderPasswordReset(row.payload.resetToken, ctx) : null;
   if (row.kind.startsWith("order_")) {
     const o = (await db.query<{ id: string; order_number: string; customer_name: string; status: string; payment_method: string; subtotal: number; discount: number; shipping_fee: number; shipping_status: string; total: number }>(
       "select id, order_number, customer_name, status, payment_method, subtotal, discount, shipping_fee, shipping_status, total from orders where order_number = $1", [row.payload.orderNumber]))[0];
@@ -72,8 +75,9 @@ export async function processOutbox(db: Db, ctx: EmailContext, send: SendFn | nu
        where status = 'pending' and attempts < $1 order by created_at limit $2 for update skip locked`, [MAX_ATTEMPTS, limit]));
 
   for (const row of rows) {
-    if (Date.now() - new Date(row.created_at).getTime() > EXPIRE_AFTER_MS) {
-      await db.query("update notification_outbox set status = 'failed', last_error = 'expired before it could be sent' where id = $1 and status = 'pending'", [row.id]);
+    if (Date.now() - new Date(row.created_at).getTime() > expireAfter(row.kind)) {
+      // Wipe the payload too: it may hold a secret token.
+      await db.query("update notification_outbox set status = 'failed', payload = '{}'::jsonb, last_error = 'expired before it could be sent' where id = $1 and status = 'pending'", [row.id]);
       result.expired++;
       continue;
     }
@@ -85,7 +89,7 @@ export async function processOutbox(db: Db, ctx: EmailContext, send: SendFn | nu
         continue;
       }
       await send({ to: row.recipient, subject: msg.subject, html: msg.html, text: msg.text, idempotencyKey: row.dedupe_key });
-      await db.query("update notification_outbox set status = 'sent', attempts = attempts + 1, sent_at = now(), last_error = null where id = $1", [row.id]);
+      await db.query("update notification_outbox set status = 'sent', attempts = attempts + 1, sent_at = now(), last_error = null, payload = case when kind = 'password_reset' then '{}'::jsonb else payload end where id = $1", [row.id]);
       result.sent++;
     } catch (e) {
       const attempts = row.attempts + 1;
