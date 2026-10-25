@@ -4,7 +4,17 @@ import { listCategories, listProducts, type ProductFilter } from "@/lib/catalog"
 import { ProductCard } from "@/components/product/product-card";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Shop", description: "Browse phone chargers, cables, cases, protection and more with PKR prices." };
+export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }): Promise<Metadata> {
+  const sp = await searchParams;
+  const filtered = Object.keys(sp).length > 0;
+  return {
+    title: "Shop",
+    description: "Browse phone chargers, cables, cases, protection and more with PKR prices.",
+    alternates: { canonical: "/shop" },
+    // Search and filter result pages are thin duplicates of /shop, so they stay out of search results.
+    robots: filtered ? { index: false, follow: true } : undefined,
+  };
+}
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";

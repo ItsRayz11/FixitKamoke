@@ -33,7 +33,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const a = availability(p.stock);
 
   // Structured data uses only real catalogue facts. No ratings or review counts are ever emitted.
-  const jsonLd = {
+  const productLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.name,
@@ -49,6 +49,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       availability: a === "out_of_stock" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
     },
   };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: site.baseUrl },
+      { "@type": "ListItem", position: 2, name: "Shop", item: `${site.baseUrl}/shop` },
+      ...(p.categoryName ? [{ "@type": "ListItem", position: 3, name: p.categoryName, item: `${site.baseUrl}/category/${p.categorySlug}` }] : []),
+      { "@type": "ListItem", position: p.categoryName ? 4 : 3, name: p.name, item: url },
+    ],
+  };
+  const jsonLd = [productLd, breadcrumbLd];
   const specs = Object.entries(p.specs);
 
   return (
@@ -56,7 +67,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <nav aria-label="Breadcrumb" className="text-sm text-muted">
         <Link href="/shop" className="hover:text-accent">Shop</Link>
-        {p.categoryName && <> / <Link href={`/shop?category=${p.categorySlug}`} className="hover:text-accent">{p.categoryName}</Link></>}
+        {p.categoryName && <> / <Link href={`/category/${p.categorySlug}`} className="hover:text-accent">{p.categoryName}</Link></>}
         {" / "}<span aria-current="page">{p.name}</span>
       </nav>
 

@@ -13,7 +13,7 @@ Owner approvals (2026-10-25): build everything in this list, including customer 
 | E | Content pages: about, contact+map, FAQ, 5 policies (drafts, flagged unapproved), 404/error/maintenance | DONE (2026-10-25); axe scan clean on 13 public pages |
 | F | Blog: model, admin editor, public pages, 4 original articles (drafts for owner review) | DONE (2026-10-25) |
 | G | Email: Resend adapter, outbox processor, templates, admin email status | DONE (2026-10-25); implemented but awaiting Resend credentials, tested with an injected sender only |
-| H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | todo |
+| H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | DONE (2026-10-25) |
 | I | Customer accounts: register/login, order history, addresses, wishlist, deletion request | todo |
 | J | Retention: recently viewed, compatible accessories, consent-based email signup + unsubscribe, privacy-minimal analytics events | todo |
 | K | Payments layer: provider interface, bank-transfer details, payment status, gateway adapters disabled | todo |

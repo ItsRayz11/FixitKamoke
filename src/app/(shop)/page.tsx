@@ -36,7 +36,7 @@ export default async function HomePage() {
           <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {categories.map((c) => (
               <li key={c.id}>
-                <Link href={`/shop?category=${c.slug}`} className="flex min-h-20 items-center justify-center rounded-[var(--radius-md)] border border-line bg-surface p-4 text-center text-sm font-semibold shadow-[var(--shadow-card)] transition-colors hover:border-accent hover:text-accent">
+                <Link href={`/category/${c.slug}`} className="flex min-h-20 items-center justify-center rounded-[var(--radius-md)] border border-line bg-surface p-4 text-center text-sm font-semibold shadow-[var(--shadow-card)] transition-colors hover:border-accent hover:text-accent">
                   {c.name}
                 </Link>
               </li>
