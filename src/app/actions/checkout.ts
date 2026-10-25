@@ -9,6 +9,7 @@ import { quoteShipping } from "@/lib/domain/shipping";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCustomer } from "@/lib/auth/session";
 import { listAddresses } from "@/lib/customers/customers";
+import { getPaymentOptions, type PaymentOptions } from "@/lib/payments";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { ZodError } from "zod";
 
@@ -93,4 +94,8 @@ export async function getCheckoutPrefill(): Promise<CheckoutPrefill | null> {
   if (!c) return null;
   const a = (await listAddresses(await getDb(), c.id))[0];
   return { name: a?.recipientName ?? c.name, phone: a?.phone ?? c.phone ?? "", email: c.email, city: a?.city ?? "", area: a?.area ?? "", address: a?.address ?? "" };
+}
+
+export async function getPaymentChoices(): Promise<PaymentOptions> {
+  return getPaymentOptions(await getDb());
 }

@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db";
 import { normalizePkMobile } from "@/lib/domain/phone";
 import { orderTotals, type Coupon } from "@/lib/domain/pricing";
 import { quoteShipping, type ShippingConfig } from "@/lib/domain/shipping";
+import { getPaymentOptions } from "@/lib/payments";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
@@ -22,7 +23,7 @@ export const checkoutSchema = z.object({
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
 export class CheckoutError extends Error {
-  constructor(public code: "invalid_phone" | "out_of_stock" | "unavailable" | "not_serviceable" | "cod_unavailable" | "bad_coupon" | "shipping_unconfigured", message: string, public detail?: unknown) {
+  constructor(public code: "invalid_phone" | "payment_unavailable" | "out_of_stock" | "unavailable" | "not_serviceable" | "cod_unavailable" | "bad_coupon" | "shipping_unconfigured", message: string, public detail?: unknown) {
     super(message);
   }
 }
@@ -58,6 +59,11 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     if (existing[0]) {
       const e = existing[0];
       return { orderNumber: e.order_number, trackingToken: null, total: e.total, shippingFee: e.shipping_fee, shippingStatus: e.shipping_status, duplicate: true };
+    }
+
+    const methods = await getPaymentOptions(q);
+    if ((input.paymentMethod === "cod" && !methods.cod) || (input.paymentMethod === "bank_transfer" && !methods.bankTransfer)) {
+      throw new CheckoutError("payment_unavailable", "That payment method is not available right now. Please choose another.");
     }
 
     const config = await getShippingConfig(q);

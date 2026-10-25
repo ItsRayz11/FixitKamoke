@@ -17,6 +17,7 @@ const NAV: { href: string; label: string; min: "staff" | "manager" | "owner" }[]
   { href: "/admin/subscribers", label: "Email list", min: "manager" },
   { href: "/admin/shipping", label: "Shipping", min: "manager" },
   { href: "/admin/settings", label: "Store settings", min: "owner" },
+  { href: "/admin/payments", label: "Payments", min: "owner" },
   { href: "/admin/email", label: "Email status", min: "owner" },
   { href: "/admin/users", label: "Staff", min: "owner" },
   { href: "/admin/audit", label: "Audit log", min: "owner" },

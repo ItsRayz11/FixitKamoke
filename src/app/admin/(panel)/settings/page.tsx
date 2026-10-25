@@ -30,6 +30,11 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
         <fieldset className="space-y-4"><legend className="text-lg font-bold">Official social profiles</legend>
           {t("facebook", "Facebook", undefined, "url")}{t("instagram", "Instagram", undefined, "url")}{t("tiktok", "TikTok", undefined, "url")}{t("youtube", "YouTube", undefined, "url")}
         </fieldset>
+        <fieldset className="space-y-2"><legend className="text-lg font-bold">Payment methods offered at checkout</legend>
+          <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name="codEnabled" defaultChecked={s.codEnabled} className="h-5 w-5" /> Cash on delivery (still limited by each delivery zone)</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name="bankTransferEnabled" defaultChecked={s.bankTransferEnabled} className="h-5 w-5" /> Bank transfer</label>
+          <p className="text-xs text-muted">Online payment gateways are listed on the Payments page. None can be switched on until it is genuinely connected.</p>
+        </fieldset>
         <fieldset className="space-y-4"><legend className="text-lg font-bold">Bank transfer details</legend>
           <p className="text-sm text-muted">Shown to customers who choose bank transfer. Leave empty to share details privately on WhatsApp instead.</p>
           {t("bankName", "Bank name")}{t("bankAccountTitle", "Account title")}{t("bankAccountNumber", "Account number / IBAN")}

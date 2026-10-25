@@ -29,6 +29,8 @@ export const storeSettingsSchema = z.object({
   policiesApproved: z.boolean(),
   /** Repair types the shop really offers. Empty means "tell us the problem", never a guessed list. */
   repairServices: z.array(z.string().trim().min(1).max(80)).max(30),
+  codEnabled: z.boolean(),
+  bankTransferEnabled: z.boolean(),
   /** Owner-written specifics for policy pages (Markdown). Null shows "to be confirmed". */
   shippingTerms: z.string().trim().max(4000).nullable(),
   returnsTerms: z.string().trim().max(4000).nullable(),
@@ -58,6 +60,8 @@ export const defaultSettings = (): StoreSettings => ({
   announcement: null,
   policiesApproved: false,
   repairServices: [],
+  codEnabled: true,
+  bankTransferEnabled: true,
   shippingTerms: null,
   returnsTerms: null,
   warrantyTerms: null,

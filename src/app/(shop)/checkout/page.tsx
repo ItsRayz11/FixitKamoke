@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCartView } from "@/components/cart/use-cart-view";
-import { getCheckoutPrefill, getShippingView, placeOrder, type CheckoutPrefill, type ShippingView } from "@/app/actions/checkout";
+import { getCheckoutPrefill, getPaymentChoices, getShippingView, placeOrder, type CheckoutPrefill, type ShippingView } from "@/app/actions/checkout";
+import type { PaymentOptions } from "@/lib/payments";
 import { formatPKR } from "@/lib/domain/money";
 import { track } from "@/lib/track";
 
@@ -16,6 +17,7 @@ export default function CheckoutPage() {
   const [city, setCity] = useState("");
   const [ship, setShip] = useState<ShippingView | null>(null);
   const [payment, setPayment] = useState<"cod" | "bank_transfer">("cod");
+  const [methods, setMethods] = useState<PaymentOptions>({ cod: true, bankTransfer: true });
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState<{ message: string; fields?: Record<string, string> } | null>(null);
   const [pending, start] = useTransition();
@@ -26,6 +28,11 @@ export default function CheckoutPage() {
     track("checkout_start");
     // Signed-in customers get their details filled in. Only fields that are still empty are touched,
     // so anything the customer has already typed is never overwritten.
+    getPaymentChoices().then((m) => {
+      setMethods(m);
+      // Keep what the customer already chose; only switch if that method turned out to be unavailable.
+      setPayment((cur) => (cur === "cod" && !m.cod ? "bank_transfer" : cur === "bank_transfer" && !m.bankTransfer ? "cod" : cur));
+    }).catch(() => {});
     getCheckoutPrefill().then((p: CheckoutPrefill | null) => {
       if (!p) return;
       const fill = (id: string, value: string) => {
@@ -111,8 +118,9 @@ export default function CheckoutPage() {
 
           <fieldset>
             <legend className="font-semibold">Payment method</legend>
-            <label className="mt-2 flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "cod"} onChange={() => setPayment("cod")} className="h-5 w-5" /> Cash on delivery</label>
-            <label className="flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "bank_transfer"} onChange={() => setPayment("bank_transfer")} className="h-5 w-5" /> Bank transfer <span className="text-xs text-muted">(we will message you the account details)</span></label>
+            {methods.cod && <label className="mt-2 flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "cod"} onChange={() => setPayment("cod")} className="h-5 w-5" /> Cash on delivery</label>}
+            {methods.bankTransfer && <label className="flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "bank_transfer"} onChange={() => setPayment("bank_transfer")} className="h-5 w-5" /> Bank transfer <span className="text-xs text-muted">(we will message you the account details)</span></label>}
+            {!methods.cod && !methods.bankTransfer && <p role="alert" className="text-sm text-danger">No payment method is available right now. Please contact us.</p>}
             {codBlocked && payment === "cod" && <p role="alert" className="text-sm text-danger">Cash on delivery is not available for this city. Please choose bank transfer.</p>}
           </fieldset>
 
