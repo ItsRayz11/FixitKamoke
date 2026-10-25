@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { KeepForm } from "@/components/admin/keep-form";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Banner, Field, inputCls, Submit, td, th } from "@/components/admin/ui";
 import { deleteCategoryAction, saveCategoryAction } from "../catalog-actions";
 
@@ -36,7 +37,7 @@ export default async function CategoriesAdmin({ searchParams }: { searchParams: 
                     </details>
                   </td>
                   <td className={td}>{c.slug}</td><td className={td}>{c.n}</td><td className={td}>{c.sort_order}</td>
-                  <td className={td}><form action={deleteCategoryAction}><input type="hidden" name="id" value={c.id} /><button className="min-h-11 text-sm font-semibold text-danger underline">Delete</button></form></td>
+                  <td className={td}><ConfirmButton action={deleteCategoryAction} fields={{ id: c.id }} title={`Delete “${c.name}”?`} description="Categories that still have products cannot be deleted. This cannot be undone." confirmLabel="Delete category" className="min-h-11 text-sm font-semibold text-danger underline">Delete</ConfirmButton></td>
                 </tr>
               ))}
             </tbody>

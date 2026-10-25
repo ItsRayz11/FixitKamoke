@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { requireAdmin, hasRole } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { listCategories } from "@/lib/catalog";
-import { Banner, Submit } from "@/components/admin/ui";
+import { Banner } from "@/components/admin/ui";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ProductForm } from "@/components/admin/product-form";
 import { deleteProductAction } from "../actions";
 
@@ -36,11 +37,10 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
         }}
       />
       {hasRole(admin, "owner") && (
-        <form action={deleteProductAction} className="mt-10 max-w-3xl border-t border-line pt-4">
-          <input type="hidden" name="id" value={p.id} />
+        <div className="mt-10 max-w-3xl border-t border-line pt-4">
           <p className="mb-2 text-sm text-muted">Deleting removes the product from the store. Past orders keep their records. Unpublishing (above) is usually safer.</p>
-          <Submit danger>Delete product</Submit>
-        </form>
+          <ConfirmButton action={deleteProductAction} fields={{ id: p.id }} title={`Delete “${p.name}”?`} description="This removes the product and its photos from the store. Past orders keep their own copy of what was bought. This cannot be undone." confirmLabel="Delete product" className="min-h-11 rounded-[var(--radius-sm)] bg-danger px-5 text-sm font-semibold text-white">Delete product</ConfirmButton>
+        </div>
       )}
     </div>
   );

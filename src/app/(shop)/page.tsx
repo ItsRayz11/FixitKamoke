@@ -32,7 +32,7 @@ export default async function HomePage() {
       </section>
 
       {categories.length > 0 && (
-        <section className="container-x py-10" aria-labelledby="cats">
+        <section className="reveal container-x py-10" aria-labelledby="cats">
           <h2 id="cats" className="text-xl font-bold">Shop by category</h2>
           <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {categories.map((c) => (
@@ -64,7 +64,7 @@ export default async function HomePage() {
 
       <RecentlyViewed />
 
-      <section className="bg-surface py-12">
+      <section className="reveal bg-surface py-12">
         <div className="container-x grid gap-8 md:grid-cols-2">
           <div>
             <h2 className="text-xl font-bold">Repairs, confirmed before we start</h2>

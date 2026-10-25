@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listCategories, listProducts, type ProductFilter } from "@/lib/catalog";
 import { ProductCard } from "@/components/product/product-card";
+import { Sheet } from "@/components/ui/sheet";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }): Promise<Metadata> {
@@ -32,27 +33,27 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const active = Boolean(q || category || filter.min !== undefined || filter.max !== undefined || filter.inStock);
 
   const input = "mt-1 h-11 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm";
-  const filters = (
+  const filters = (px: string) => (
     <form action="/shop" method="get" className="space-y-4">
       <div>
-        <label htmlFor="f-q" className="text-sm font-semibold">Search</label>
-        <input id="f-q" name="q" defaultValue={q} placeholder="Name, brand or phone model" className={input} />
+        <label htmlFor={`${px}f-q`} className="text-sm font-semibold">Search</label>
+        <input id={`${px}f-q`} name="q" defaultValue={q} placeholder="Name, brand or phone model" className={input} />
       </div>
       <div>
-        <label htmlFor="f-cat" className="text-sm font-semibold">Category</label>
-        <select id="f-cat" name="category" defaultValue={category} className={input}>
+        <label htmlFor={`${px}f-cat`} className="text-sm font-semibold">Category</label>
+        <select id={`${px}f-cat`} name="category" defaultValue={category} className={input}>
           <option value="">All categories</option>
           {categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
         </select>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label htmlFor="f-min" className="text-sm font-semibold">Min (Rs.)</label><input id="f-min" name="min" inputMode="numeric" defaultValue={one(sp.min)} className={input} /></div>
-        <div><label htmlFor="f-max" className="text-sm font-semibold">Max (Rs.)</label><input id="f-max" name="max" inputMode="numeric" defaultValue={one(sp.max)} className={input} /></div>
+        <div><label htmlFor={`${px}f-min`} className="text-sm font-semibold">Min (Rs.)</label><input id={`${px}f-min`} name="min" inputMode="numeric" defaultValue={one(sp.min)} className={input} /></div>
+        <div><label htmlFor={`${px}f-max`} className="text-sm font-semibold">Max (Rs.)</label><input id={`${px}f-max`} name="max" inputMode="numeric" defaultValue={one(sp.max)} className={input} /></div>
       </div>
       <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="stock" value="1" defaultChecked={filter.inStock} className="h-5 w-5" /> In stock only</label>
       <div>
-        <label htmlFor="f-sort" className="text-sm font-semibold">Sort by</label>
-        <select id="f-sort" name="sort" defaultValue={sort} className={input}>
+        <label htmlFor={`${px}f-sort`} className="text-sm font-semibold">Sort by</label>
+        <select id={`${px}f-sort`} name="sort" defaultValue={sort} className={input}>
           <option value="newest">Newest</option>
           <option value="price_asc">Price: low to high</option>
           <option value="price_desc">Price: high to low</option>
@@ -70,13 +71,14 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
     <div className="container-x py-8">
       <h1 className="text-2xl font-extrabold">{q ? `Results for “${q}”` : "Shop all"}</h1>
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
-        {/* Mobile: filters open in a disclosure. Desktop: always-visible sidebar. */}
-        <details className="rounded-[var(--radius-md)] border border-line bg-surface p-4 lg:hidden">
-          <summary className="min-h-11 cursor-pointer text-sm font-semibold leading-[2.75rem]">Filters & sorting</summary>
-          <div className="pt-3">{filters}</div>
-        </details>
+        {/* Phones and tablets: filters open in an accessible bottom drawer. Desktop: always-visible sidebar. */}
+        <div className="lg:hidden">
+          <Sheet title="Filters and sorting" triggerClassName="inline-flex min-h-11 w-full items-center justify-between rounded-[var(--radius-md)] border border-line bg-surface px-4 text-sm font-semibold" trigger={<>Filters &amp; sorting{active && <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-white">on</span>}</>}>
+            {filters("m-")}
+          </Sheet>
+        </div>
         <aside className="hidden lg:block" aria-label="Filters">
-          <div className="sticky top-24 rounded-[var(--radius-md)] border border-line bg-surface p-4">{filters}</div>
+          <div className="sticky top-24 rounded-[var(--radius-md)] border border-line bg-surface p-4">{filters("d-")}</div>
         </aside>
         <section aria-label="Products">
           <p className="text-sm text-muted" aria-live="polite">{products.length} product{products.length === 1 ? "" : "s"}</p>
