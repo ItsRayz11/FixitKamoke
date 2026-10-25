@@ -54,7 +54,8 @@ export function getDb(): Promise<Db> {
     if (process.env.NODE_ENV === "production") {
       throw new Error("DATABASE_URL is required in production");
     }
-    const db = await createPgliteDb(path.join(process.cwd(), ".data", "pglite"));
+    // FIXIT_PGLITE_DIR=memory:// gives a throwaway database (used by end-to-end tests).
+    const db = await createPgliteDb(process.env.FIXIT_PGLITE_DIR ?? path.join(process.cwd(), ".data", "pglite"));
     await migrate(db);
     return db;
   })();
