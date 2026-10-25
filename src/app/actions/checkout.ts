@@ -7,6 +7,7 @@ import { getProductsByIds, effectivePrice } from "@/lib/catalog";
 import { checkoutSchema, CheckoutError, createOrder, getShippingConfig } from "@/lib/orders/create-order";
 import { quoteShipping } from "@/lib/domain/shipping";
 import { rateLimit } from "@/lib/rate-limit";
+import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { ZodError } from "zod";
 
 const linesSchema = z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(50) })).max(50);
@@ -67,6 +68,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
       // Idempotent retry: order exists but the plaintext token is only ever shown once.
       return { ok: false, code: "duplicate", message: `Your order ${order.orderNumber} was already received. Please check your confirmation or contact us.` };
     }
+    sendQueuedEmailSoon();
     return { ok: true, orderNumber: order.orderNumber, token: order.trackingToken };
   } catch (e) {
     if (e instanceof CheckoutError) return { ok: false, code: e.code, message: e.message };

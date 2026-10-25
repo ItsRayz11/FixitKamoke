@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { flash } from "@/lib/admin/flash";
+import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/domain/order-state";
 import { OrderAdminError, setManualShippingFee, setPaymentStatus, transitionOrder } from "@/lib/orders/admin";
 
@@ -21,6 +22,7 @@ export async function changeStatusAction(form: FormData) {
     if (e instanceof OrderAdminError) flash(back, { error: e.message });
     throw e;
   }
+  sendQueuedEmailSoon();
   flash(back, { ok: "Status updated." });
 }
 

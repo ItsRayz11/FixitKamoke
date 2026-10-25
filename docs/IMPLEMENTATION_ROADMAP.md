@@ -11,8 +11,8 @@ Owner approvals (2026-10-25): build everything in this list, including customer 
 | C | Admin: dashboard, products, categories, inventory, orders (status machine + restock), coupons, shipping editor, store settings, users, audit, customers, reviews | DONE except repairs/blog/email pages (phases D, F, G) |
 | D | Repair booking (public) + token tracking + admin repair management | DONE (2026-10-25) |
 | E | Content pages: about, contact+map, FAQ, 5 policies (drafts, flagged unapproved), 404/error/maintenance | DONE (2026-10-25); axe scan clean on 13 public pages |
-| F | Blog: model, admin editor, public pages, 4 original articles (drafts for owner review) | todo |
-| G | Email: Resend adapter, outbox processor, templates, admin email status | todo |
+| F | Blog: model, admin editor, public pages, 4 original articles (drafts for owner review) | DONE (2026-10-25) |
+| G | Email: Resend adapter, outbox processor, templates, admin email status | DONE (2026-10-25); implemented but awaiting Resend credentials, tested with an injected sender only |
 | H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | todo |
 | I | Customer accounts: register/login, order history, addresses, wishlist, deletion request | todo |
 | J | Retention: recently viewed, compatible accessories, consent-based email signup + unsubscribe, privacy-minimal analytics events | todo |

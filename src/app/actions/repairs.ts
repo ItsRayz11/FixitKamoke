@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { createRepairInquiry, findRepairByPhone, RepairError, type RepairView } from "@/lib/repairs/repairs";
 
 const ip = async () => (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -16,6 +17,7 @@ export async function submitRepair(input: unknown): Promise<SubmitRepairResult> 
   if (!rateLimit(`repair:${await ip()}`, 6, 30 * 60_000)) return { ok: false, message: "Too many requests. Please wait a while, or message us on WhatsApp." };
   try {
     const r = await createRepairInquiry(await getDb(), input);
+    sendQueuedEmailSoon();
     return { ok: true, reference: r.reference, token: r.token };
   } catch (e) {
     if (e instanceof RepairError) return { ok: false, message: e.message, fieldErrors: e.code === "invalid_phone" ? { phone: e.message } : undefined };

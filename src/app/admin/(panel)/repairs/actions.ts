@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { flash } from "@/lib/admin/flash";
+import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { REPAIR_STATUSES } from "@/lib/domain/repair-state";
 import { RepairError, updateRepair } from "@/lib/repairs/repairs";
 
@@ -29,5 +30,6 @@ export async function updateRepairAction(form: FormData) {
     if (e instanceof RepairError) flash(back, { error: e.message });
     throw e;
   }
+  sendQueuedEmailSoon();
   flash(back, { ok: "Repair request updated." });
 }
