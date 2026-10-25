@@ -16,8 +16,8 @@ Owner approvals (2026-10-25): build everything in this list, including customer 
 | H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | DONE (2026-10-25) |
 | I | Customer accounts: register/login, order history, addresses, wishlist, reviews, password reset, deletion | DONE (2026-10-25) |
 | J | Retention: recently viewed, compatible accessories, order again, consent-based email list + unsubscribe + CSV, privacy-minimal funnel events | DONE (2026-10-25); campaign sending and back-in-stock alerts not built |
-| K | Payments layer: provider interface, bank-transfer details, payment status, gateway adapters disabled | todo |
-| L | shadcn/ui primitives (dialog, sheet, accordion), Motion animations, reduced-motion | todo |
-| M | Security pass (authz tests, headers, upload rules, rate limits), accessibility pass, performance measurement | todo |
-| N | Docs set + deployment guide + launch blockers | todo |
-| O | Final in-depth cross-audit of everything; fix; final report | todo |
+| K | Payments layer: provider interface, bank-transfer details, payment status, gateway adapters disabled | DONE (2026-10-25); gateways intentionally not connected |
+| L | shadcn/ui primitives (dialog, sheet, accordion), Motion animations, reduced-motion | DONE (2026-10-25); drawer + confirm dialogs on Radix, Motion toast, CSS reveals. shadcn CLI registry was unreachable, so equivalent components were written by hand |
+| M | Security pass (authz tests, headers, upload rules, rate limits), accessibility pass, performance measurement | DONE (2026-10-25); production-mode suite, CSP/HSTS, RLS, secret scan, throttled lab performance numbers; manual device/screen-reader passes still owed |
+| N | Docs set + deployment guide + launch blockers | DONE (2026-10-25) |
+| O | Final in-depth cross-audit of everything; fix; final report | DONE (2026-10-25) |

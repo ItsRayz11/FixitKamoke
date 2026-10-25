@@ -1,13 +1,14 @@
 "use server";
 
 import { headers } from "next/headers";
+import { clientIp } from "@/lib/client-ip";
 import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
 import { createRepairInquiry, findRepairByPhone, RepairError, type RepairView } from "@/lib/repairs/repairs";
 
-const ip = async () => (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+const ip = async () => clientIp((await headers()).get.bind(await headers()));
 
 export type SubmitRepairResult =
   | { ok: true; reference: string; token: string }

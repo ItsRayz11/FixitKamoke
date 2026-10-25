@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { availability, compatibleProducts, effectivePrice, getProductBySlug, relatedProducts } from "@/lib/catalog";
+import { availability, compatibleProducts, effectivePrice, getProductBySlug, getProductImages, relatedProducts } from "@/lib/catalog";
+import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductView } from "@/components/product/product-view";
 import { RecentlyViewed } from "@/components/product/recently-viewed";
 import { site } from "@/config/site";
@@ -36,7 +37,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   if (!p) notFound();
   const db = await getDb();
   const customer = await getCustomer();
-  const [related, compatible, reviews, reviewState, saved] = await Promise.all([
+  const [images, related, compatible, reviews, reviewState, saved] = await Promise.all([
+    getProductImages(p.id),
     relatedProducts(p),
     compatibleProducts(p),
     approvedReviews(db, p.id),
@@ -56,7 +58,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     sku: p.sku ?? undefined,
     brand: p.brand ? { "@type": "Brand", name: p.brand } : undefined,
     description: p.description || undefined,
-    image: p.image?.url,
+    image: images.length ? images.map((i) => i.url) : undefined,
     offers: {
       "@type": "Offer",
       url,
@@ -89,14 +91,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       </nav>
 
       <div className="mt-6 grid gap-8 md:grid-cols-2">
-        <div className="aspect-square overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
-          {p.image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote URL
-            <img src={p.image.url} alt={p.image.alt} width={800} height={800} fetchPriority="high" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-muted">Photo coming soon</div>
-          )}
-        </div>
+        <ProductGallery images={images} name={p.name} />
 
         <div>
           {p.brand && <p className="text-sm font-medium uppercase tracking-wide text-muted">{p.brand}</p>}

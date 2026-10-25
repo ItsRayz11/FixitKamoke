@@ -109,6 +109,23 @@ test("another customer never sees this customer's orders, and guest orders are n
   await expect(page.getByText(guest)).toHaveCount(0);
 });
 
+test("an order's detail page is only visible to the account that placed it", async ({ page, browser }) => {
+  await signIn(page, A);
+  const number = await placeOrder(page, "demo-earphones");
+  await page.goto("/account");
+  await page.getByRole("link", { name: number }).first().click();
+  await expect(page.getByTestId("order-number")).toHaveText(number);
+  const url = page.url();
+
+  const other = await (await browser.newContext({ baseURL: "http://localhost:3100" })).newPage();
+  await register(other, { name: "Nosy Neighbour", email: "nosy@example.com", password: "Nosy-pass-123456" });
+  await expect(other.getByRole("heading", { name: "Your orders" })).toBeVisible();
+  expect((await other.goto(url))?.status()).toBe(404);
+  await other.context().clearCookies();
+  await other.goto(url);
+  await expect(other).toHaveURL(/\/account\/login/);
+});
+
 test("open redirects are refused after login", async ({ page }) => {
   await page.context().clearCookies();
   await page.goto("/account/login?next=https://evil.example/");

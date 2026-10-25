@@ -50,6 +50,9 @@ test("contact page: honest placeholders, validation, and a stored message", asyn
   await ensureOwnerLogin(page);
   await page.goto("/admin/messages");
   await expect(page.getByText("Do you have a charger for my phone?")).toBeVisible();
+  await page.goto("/admin");
+  await expect(page.getByText("Unanswered messages")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Unanswered messages/ })).toBeVisible();
 });
 
 test("owner settings change the storefront: announcement, WhatsApp, address, founder, policy approval", async ({ page }) => {

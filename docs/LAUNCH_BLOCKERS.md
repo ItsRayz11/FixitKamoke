@@ -13,6 +13,7 @@ Nothing below can be invented by the developer. Until done, the site shows "to b
 | 6 | Which repairs you really offer | Store settings → Repair services | empty |
 | 7 | Bank account details if bank transfer is offered | Store settings | empty |
 | 8 | Official social profile links | Store settings | empty |
+| 8b | Contact email address (shown to customers and used for new-order/repair/message alerts) | Store settings | empty |
 | 9 | Founder section: Ali Hassan's approved message and photo (optional; hidden by default) | Store settings | off |
 | 10 | Review and edit the four starter guides before publishing | Admin → Blog | drafts |
 | 11 | Domain: fixit.com / fixitkamoki.com availability was **not verified**; buy and point DNS | registrar + host | unverified |
@@ -33,7 +34,12 @@ Nothing below can be invented by the developer. Until done, the site shows "to b
 - Shared (multi-instance) rate limiting.
 - Urdu / Roman Urdu (structure allows it later).
 - Courier tracking integration, loyalty points, referral rewards.
-- Live performance measurement on real phones/networks (only build checks done here).
+- Performance measured only as lab numbers on the build machine; INP not measured; no real-phone or live-site measurement yet.
+
+## Operational notes
+- Run the app behind a proxy/host that sets `X-Real-IP` or appends to `X-Forwarded-For` (Vercel, Cloudflare, nginx) so rate limits cannot be dodged.
+- Rate limits are per server instance; use a shared store if you run several instances.
+- Check Admin → Messages and Orders regularly, or set the contact email so alerts reach you.
 
 ## Verified-in-code launch safety
 Orders cannot be placed without configured delivery zones. Gateways never appear. The dev seed and test helper endpoints return 404 in production. `robots.txt` blocks everything while `NEXT_PUBLIC_DEMO_MODE=1`.

@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "node:crypto";
+import { clientIp } from "@/lib/client-ip";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -12,7 +13,7 @@ import { audit } from "@/lib/audit";
 
 export interface FormState { error?: string; ok?: string; values?: { email?: string; name?: string } }
 
-const ip = async () => (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+const ip = async () => clientIp((await headers()).get.bind(await headers()));
 // Hash used to keep login timing similar when the email does not exist.
 const DUMMY = "scrypt$AAAAAAAAAAAAAAAAAAAAAA$" + "A".repeat(86);
 

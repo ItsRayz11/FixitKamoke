@@ -25,7 +25,7 @@ export async function saveStoreAction(form: FormData) {
     founderPhotoUrl: blank(form, "founderPhotoUrl"), bankName: blank(form, "bankName"), bankAccountTitle: blank(form, "bankAccountTitle"),
     bankAccountNumber: blank(form, "bankAccountNumber"), heroTitle: blank(form, "heroTitle"), heroSubtitle: blank(form, "heroSubtitle"),
     announcement: blank(form, "announcement"), policiesApproved: form.get("policiesApproved") === "on",
-    codEnabled: form.get("codEnabled") === "on", bankTransferEnabled: form.get("bankTransferEnabled") === "on",
+    notifyStaffByEmail: form.get("notifyStaffByEmail") === "on", codEnabled: form.get("codEnabled") === "on", bankTransferEnabled: form.get("bankTransferEnabled") === "on",
     shippingTerms: blank(form, "shippingTerms"), returnsTerms: blank(form, "returnsTerms"), warrantyTerms: blank(form, "warrantyTerms"),
     repairServices: String(form.get("repairServices") ?? "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean),
   });

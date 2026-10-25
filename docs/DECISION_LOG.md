@@ -48,3 +48,20 @@ Product, blog and founder photos are referenced by https URL. Direct file upload
 
 ## 13. Selected and rejected resources
 Used: Next.js, React, Tailwind, Zod, postgres.js, PGlite, Vitest, Playwright, @axe-core/playwright, Resend (HTTP API). Evaluated and not used: Appwrite, Supabase JS client/Auth, Magic UI / Aceternity / React Bits (decorative animation components with added bundle weight; not needed), third-party analytics, an ORM.
+
+## 14. Lessons from running the production build on a real Postgres connection
+- **JSON double-encoding (fixed).** The `postgres` driver JSON-stringifies parameters for `json/jsonb` columns, but our code (and the embedded test database) passes already-serialised JSON strings. On the real driver this stored escaped *strings* instead of objects, which would have broken delivery zones, store settings and email payloads in production while every embedded-database test passed. Fix: `types.json.serialize` passes strings through (`src/lib/db/index.ts`). Guard: `tests/integration/postgres-driver.test.ts` runs the key flows through the production driver over a real socket.
+- **Run-time address.** `NEXT_PUBLIC_*` variables are baked in when the site is built. The run-time `SITE_URL` takes priority for links, the sitemap and emails. `robots.txt` is generated per request, not once at build.
+- **Pool size.** `DATABASE_POOL_MAX` (default 5) lets serverless hosts keep connections low.
+
+## 15. Rate limiting and the visitor's address
+Limits are keyed by the visitor's IP. `X-Forwarded-For` lists every hop and the left-hand entries can be typed by the visitor, so the **last** entry (added by the proxy in front of the app) or `X-Real-IP` is used (`src/lib/client-ip.ts`). This is only trustworthy behind a proxy such as Vercel, Cloudflare or nginx; do not expose the app directly to the internet. The counter is still per server process (see 10).
+
+## 16. Content-Security-Policy
+Production sends a CSP with `default-src 'self'`, no third-party script origins, `object-src 'none'`, `frame-ancestors 'self'`, `form-action 'self'`, and HSTS. `'unsafe-inline'` remains for scripts because Next.js bootstraps and the JSON-LD blocks are inline. Moving to per-request nonces would remove it but forces every page to render dynamically on each request with extra complexity; deferred.
+
+## 17. Shop alerts
+New orders, repair requests and contact messages queue an email to the contact address in Store settings (switchable). The text carries a reference and summary only, never a customer's phone or address.
+
+## 18. Accessibility finding
+A scroll-reveal that faded text in from low opacity made contrast checks fail while the text was still faded. The reveal now only slides (no opacity change).

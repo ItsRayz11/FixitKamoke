@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { queueStaffAlert } from "@/lib/email/alerts";
 import { normalizePkMobile } from "@/lib/domain/phone";
 import { canRepairTransition, type RepairStatus } from "@/lib/domain/repair-state";
 
@@ -37,6 +38,7 @@ export async function createRepairInquiry(db: Db, raw: unknown): Promise<{ refer
       [reference, sha(token), d.customerName, phone, d.email ?? null, d.deviceBrand, d.deviceModel, d.issue, d.preferredContact, d.appointmentPreference ?? null]);
     await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor) values ($1, null, 'new', 'customer')", [r[0].id]);
     await q.query("insert into analytics_events(name, path) values ('repair_submitted', '/repairs')");
+    await queueStaffAlert(q, "repair", reference, `${d.deviceBrand} ${d.deviceModel}: ${d.issue.slice(0, 80)}`);
     if (d.email) {
       await q.query("insert into notification_outbox(kind, recipient, payload, dedupe_key) values ('repair_received', $1, $2, $3) on conflict (dedupe_key) do nothing",
         [d.email, JSON.stringify({ reference }), `repair_received:${reference}`]);

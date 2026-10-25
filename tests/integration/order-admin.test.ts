@@ -70,3 +70,21 @@ describe("order status transitions", () => {
     await expect(setManualShippingFee(db, id, 1_000_000, "x")).rejects.toBeInstanceOf(OrderAdminError);
   });
 });
+
+describe("coupons and cancelled orders", () => {
+  it("gives the coupon use back when an order is cancelled, exactly once", async () => {
+    await db.query("insert into coupons(code,type,value,min_subtotal,usage_limit) values ('ONCE','fixed',50,0,1)");
+    await db.query("update products set stock = 50 where id = $1", [product]);
+    const o = await createOrder(db, { ...base, couponCode: "once", idempotencyKey: `coupon-cancel-key-${++n}-zzzzzz`, items: [{ productId: product, quantity: 1 }] });
+    const id = (await db.query<{ id: string }>("select id from orders where order_number = $1", [o.orderNumber]))[0].id;
+    expect((await db.query<{ used_count: number }>("select used_count from coupons where code='ONCE'"))[0].used_count).toBe(1);
+    // the single-use coupon is now spent
+    await expect(createOrder(db, { ...base, couponCode: "once", idempotencyKey: `coupon-second-key-${++n}-zzzzzz`, items: [{ productId: product, quantity: 1 }] })).rejects.toMatchObject({ code: "bad_coupon" });
+    await transitionOrder(db, id, "cancelled", "staff");
+    expect((await db.query<{ used_count: number }>("select used_count from coupons where code='ONCE'"))[0].used_count).toBe(0);
+    await expect(transitionOrder(db, id, "cancelled", "staff")).rejects.toBeInstanceOf(OrderAdminError);
+    expect((await db.query<{ used_count: number }>("select used_count from coupons where code='ONCE'"))[0].used_count).toBe(0); // not decremented twice
+    // and it can be used again
+    await createOrder(db, { ...base, couponCode: "once", idempotencyKey: `coupon-third-key-${++n}-zzzzzz`, items: [{ productId: product, quantity: 1 }] });
+  });
+});

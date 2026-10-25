@@ -6,6 +6,7 @@ export interface DashboardStats {
   revenue30: number;
   aov30: number;
   newRepairs: number;
+  openMessages: number;
   lowStock: { name: string; stock: number; id: string }[];
   outboxPending: number;
   repeatRate: number | null;
@@ -27,6 +28,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       count(*) filter (where created_at > now() - interval '30 days' and status in ('cancelled','rejected')) as cancelled30
     from orders`);
   const [r] = await db.query<{ c: number }>("select count(*)::int as c from repair_inquiries where status = 'new'");
+  const [msg] = await db.query<{ c: number }>("select count(*)::int as c from contact_messages where not handled");
   const low = await db.query<{ id: string; name: string; stock: number }>("select id, name, stock from products where published and stock <= 3 order by stock, name limit 8");
   const [ob] = await db.query<{ c: number }>("select count(*)::int as c from notification_outbox where status = 'pending'");
   const [rep] = await db.query<{ phones: number; repeaters: number }>(`
@@ -38,7 +40,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return {
     pendingOrders: n(o.pending), orders30: c30, revenue30: n(o.rev30),
     aov30: valid ? Math.round(n(o.rev30) / valid) : 0,
-    newRepairs: r?.c ?? 0, lowStock: low, outboxPending: ob?.c ?? 0,
+    newRepairs: r?.c ?? 0, openMessages: msg?.c ?? 0, lowStock: low, outboxPending: ob?.c ?? 0,
     repeatRate: rep && rep.phones > 0 ? rep.repeaters / rep.phones : null,
     cancelRate: c30 ? n(o.cancelled30) / c30 : null,
     funnel: Object.fromEntries(ev.map((e) => [e.name, e.c])),

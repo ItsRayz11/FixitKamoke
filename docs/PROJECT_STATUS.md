@@ -1,45 +1,21 @@
-# Fixit — Project Status (read this first when resuming)
+# Fixit — Project status (read this first when resuming)
 
-Master brief: see [MASTER_PROMPT_SUMMARY.md](MASTER_PROMPT_SUMMARY.md). Update this file at the end of every phase.
+Last updated: 2026-10-25. Master brief: [MASTER_PROMPT_SUMMARY.md](MASTER_PROMPT_SUMMARY.md). Plan: [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md).
 
-Last updated: 2026-10-25
+## Where things stand
+The shop is **built and tested, not deployed**. It runs locally against an embedded Postgres, and the production build has also been run against a real Postgres wire connection. It needs the owner's real business information and paid hosting/database accounts before launch (see [LAUNCH_BLOCKERS.md](LAUNCH_BLOCKERS.md)). All product data in the dev/test runs is clearly labelled DEMO.
 
-## Honest state
-Working today (verified): storefront browse/search/product pages, browser cart, guest checkout with server-authoritative totals, order confirmation, order tracking (order number + phone), shipping rules, stock protection. Uses **demo data only** (`NEXT_PUBLIC_DEMO_MODE=1`, POST /api/dev/seed). No real inventory, prices, phone, address or policies exist yet.
+## What exists (all verified by automated tests)
+Storefront (search, categories, product pages with photo gallery, cart, guest checkout, order confirmation and tracking), repair requests with status tracking, contact form, FAQ, policy pages (drafts), blog with four starter guides awaiting review, optional customer accounts (orders, addresses, wishlist, verified reviews, password reset, deletion), retention features (recently viewed, compatible accessories, order again, consent-based email list), admin area with three roles (dashboard, orders, repairs, messages, products, categories, inventory, coupons, delivery zones, blog, reviews, customers, email list, store settings, payments status, email status, staff, audit log), transactional email outbox (Resend adapter, awaiting credentials) including shop alerts, SEO (sitemap, robots, canonical, noindex, structured data), accessibility scans, security headers, row level security.
 
-NOT built yet: repair booking, blog, policy/about/contact/FAQ pages, admin area + auth, email sending, SEO files (sitemap/robots), custom 404, accounts, analytics, docs set, deployment.
+## Verification
+Commands: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npx playwright test`, `npm run build && npm run test:prod`, `npm run check:secrets`. Latest numbers are in the final report.
 
-Verification run 2026-10-25: tsc clean, eslint clean, vitest 27/27, `next build` clean (0 warnings), Playwright desktop 7/7 journeys + 14/14 layout/overflow checks (desktop + Pixel 7).
+## Not built / owner decisions
+Image upload, marketing campaigns, back-in-stock alerts, online payment gateways, courier integration, Urdu, email verification and 2FA. Details in LAUNCH_BLOCKERS.md.
 
-Architecture notes: `cacheComponents` disabled (pages dynamic); Next 16 uses `proxy.ts` not `middleware.ts`; async `cookies()`; Tailwind v4 via the scaffold's `@tailwindcss/turbopack` rule in next.config.ts (do not remove). Production migrations: `DATABASE_URL=... npm run db:migrate`. In-memory rate limiter is per-process only.
-
-## Phase checklist
-| # | Phase | Status |
-|---|-------|--------|
-| 0 | Repo/environment audit | Done (empty folder, Node 24.19, npm 11.17, git; no Docker/psql) |
-| 0 | Docs set (blueprint, roadmap, architecture, decision log, QA, deployment, launch blockers) | Not started |
-| 1 | Architecture decisions | Drafted (below), not yet in DECISION_LOG |
-| 2 | Design system | Tokens + header/footer/cards/toast done; no shadcn, no dialogs/drawers yet |
-| 3-4 | Site map, homepage, search | Home, shop+filters, product, cart, checkout, order, track done; rest of site map not started |
-| 5 | Catalogue and inventory | Public catalogue done; admin product management not started |
-| 6-7 | Cart, checkout, shipping | Done and tested (COD + bank transfer; no online payment gateway by design) |
-| 8 | Repair workflow | Not started |
-| 9 | WhatsApp / Maps / social config | Not started |
-| 10 | Retention | Not started |
-| 11 | Blog and SEO | Not started |
-| 12 | About / founder | Not started |
-| 13 | Admin | Not started |
-| 14 | Email (Resend) | Not started |
-| 15 | Animation | Not started |
-| 17-19 | A11y, performance, security, tests | Not started |
-| 20 | Deployment | Not started (needs owner credentials) |
-| 21 | Final audit | Not started |
-
-## Decisions so far
-- App in `E:\New folder\fixit` (Next.js 16, React 19, Tailwind 4, TypeScript).
-- Postgres with versioned SQL migrations. Production: Supabase Postgres (or Neon). Local/tests: embedded PGlite, because no Docker/Postgres is installed.
-- Admin auth: own scrypt + signed httpOnly cookie sessions with roles and audit log.
-- Customer accounts: optional, later.
-
-## Needed from the owner (never invented)
-WhatsApp number, shop address and map link, opening hours, real products/prices/stock, shipping rates, policies, social profile URLs, domain choice, Resend/Supabase/hosting credentials, founder photo/bio approval.
+## Notes for whoever continues
+- Next.js 16: `proxy.ts` replaces `middleware.ts`; `cookies()`/`params`/`searchParams` are async; Cache Components is intentionally off; do not remove the Tailwind loader rule in `next.config.ts`.
+- Production database driver differs from the embedded one: JSON must be passed as an already-serialised string (handled in `src/lib/db/index.ts`). `tests/integration/postgres-driver.test.ts` guards this. Always add new tables with `alter table … enable row level security` (a test enforces it).
+- `NEXT_PUBLIC_*` values are fixed at build time; use `SITE_URL` for the address at run time.
+- Playwright gives each test a fresh browser; sign in inside each test. The dev suite shares one server, so specs are order-aware (`a0-setup` first, `zz-*` last).

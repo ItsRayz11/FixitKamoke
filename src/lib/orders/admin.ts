@@ -18,8 +18,8 @@ const EMAIL_KIND: Partial<Record<OrderStatus, string>> = {
  */
 export async function transitionOrder(db: Db, orderId: string, to: OrderStatus, actor: string, note?: string): Promise<void> {
   await db.tx(async (q) => {
-    const rows = await q.query<{ order_number: string; status: OrderStatus; email: string | null; shipping_status: string }>(
-      "select order_number, status, email, shipping_status from orders where id = $1 for update", [orderId]);
+    const rows = await q.query<{ order_number: string; status: OrderStatus; email: string | null; shipping_status: string; coupon_code: string | null }>(
+      "select order_number, status, email, shipping_status, coupon_code from orders where id = $1 for update", [orderId]);
     const o = rows[0];
     if (!o) throw new OrderAdminError("Order not found.");
     if (!canTransition(o.status, to)) throw new OrderAdminError(`An order that is “${o.status.replace(/_/g, " ")}” cannot move to “${to.replace(/_/g, " ")}”.`);
@@ -29,6 +29,8 @@ export async function transitionOrder(db: Db, orderId: string, to: OrderStatus, 
     if (RESTOCKS_ON.includes(to)) {
       await q.query(
         "update products p set stock = p.stock + i.quantity, updated_at = now() from order_items i where i.order_id = $1 and i.product_id = p.id", [orderId]);
+      // An order that never happened must not use up a limited coupon.
+      if (o.coupon_code) await q.query("update coupons set used_count = greatest(0, used_count - 1) where code = $1", [o.coupon_code]);
     }
     await q.query("update orders set status = $2, updated_at = now() where id = $1", [orderId, to]);
     await q.query("insert into order_status_history(order_id, from_status, to_status, actor, note) values ($1,$2,$3,$4,$5)", [orderId, o.status, to, actor, note ?? null]);

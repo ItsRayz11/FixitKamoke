@@ -124,3 +124,15 @@ Choose a new password (link works once, expires in 1 hour): ${link}
 
 If you did not ask for this, ignore this email.` };
 }
+
+export function renderStaffAlert(kind: string, ref: string, summary: string, ctx: EmailContext): Rendered {
+  const label = kind === "order" ? "New order" : kind === "repair" ? "New repair request" : "New message";
+  const path = kind === "order" ? "/admin/orders" : kind === "repair" ? "/admin/repairs" : "/admin/messages";
+  const subject = `${label} ${ref}`;
+  const link = `${ctx.baseUrl}${path}`;
+  const html = shell(ctx, subject, p(`<strong>${escapeHtml(label)}</strong> ${escapeHtml(ref)}`) + p(escapeHtml(summary)) + btn(link, "Open in admin"));
+  return { subject, html, text: `${label} ${ref}
+${summary}
+
+Open in admin: ${link}` };
+}

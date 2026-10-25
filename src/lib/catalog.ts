@@ -121,3 +121,9 @@ export async function compatibleProducts(p: Product, limit = 4): Promise<Product
     [p.id, p.compatibleDevices]);
   return rows.map(map);
 }
+
+/** Every photo for a product, in the order the owner set. */
+export async function getProductImages(productId: string): Promise<{ url: string; alt: string }[]> {
+  const db = await getDb();
+  return db.query<{ url: string; alt: string }>("select url, alt from product_images where product_id = $1 order by sort_order", [productId]);
+}

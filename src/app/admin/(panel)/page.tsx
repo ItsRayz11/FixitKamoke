@@ -31,6 +31,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Orders awaiting confirmation" value={s.pendingOrders} href="/admin/orders?status=pending_confirmation" />
         <Stat label="New repair requests" value={s.newRepairs} href="/admin/repairs?status=new" />
+        <Stat label="Unanswered messages" value={s.openMessages} href="/admin/messages" />
         <Stat label="Orders, last 30 days" value={s.orders30} />
         <Stat label="Order value, last 30 days" value={formatPKR(s.revenue30)} note="Excludes cancelled, rejected and returned" />
         <Stat label="Average order value" value={s.aov30 ? formatPKR(s.aov30) : "—"} />

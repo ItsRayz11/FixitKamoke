@@ -1,12 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
+import { clientIp } from "@/lib/client-ip";
 import { getDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { MarketingError, subscribe } from "@/lib/marketing";
 
 export async function subscribeAction(email: string, consented: boolean): Promise<{ ok: boolean; message: string }> {
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientIp((await headers()).get.bind(await headers()));
   if (!rateLimit(`newsletter:${ip}`, 6, 60 * 60_000)) return { ok: false, message: "Too many attempts. Please try again later." };
   if (typeof email !== "string") return { ok: false, message: "Please enter a valid email address." };
   try {

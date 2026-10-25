@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { clientIp } from "@/lib/client-ip";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getProductsByIds, effectivePrice } from "@/lib/catalog";
@@ -60,7 +61,7 @@ export type PlaceOrderResult =
 
 export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientIp((n) => h.get(n));
   if (!rateLimit(`order:${ip}`, 10, 10 * 60_000)) {
     return { ok: false, code: "rate_limited", message: "Too many attempts. Please wait a few minutes and try again." };
   }

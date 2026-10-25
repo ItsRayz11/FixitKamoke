@@ -55,6 +55,12 @@ export async function findOrderByPhone(db: Db, orderNumber: string, phone: strin
   return o && safeEq(o.phone, norm) ? build(db, o) : null;
 }
 
+/** An order that belongs to this signed-in account. Never matched by phone or email. */
+export async function findOrderForCustomer(db: Db, customerId: string, orderNumber: string): Promise<OrderView | null> {
+  const rows = await db.query<OrderRow & { customer_id: string | null }>(`select ${COLS}, customer_id from orders where order_number = $1 and customer_id = $2`, [orderNumber.toUpperCase(), customerId]);
+  return rows[0] ? build(db, rows[0]) : null;
+}
+
 export const STATUS_LABEL: Record<string, string> = {
   pending_confirmation: "Received, awaiting confirmation",
   confirmed: "Confirmed",

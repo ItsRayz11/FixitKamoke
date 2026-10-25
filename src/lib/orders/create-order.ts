@@ -5,6 +5,7 @@ import { normalizePkMobile } from "@/lib/domain/phone";
 import { orderTotals, type Coupon } from "@/lib/domain/pricing";
 import { quoteShipping, type ShippingConfig } from "@/lib/domain/shipping";
 import { getPaymentOptions } from "@/lib/payments";
+import { queueStaffAlert } from "@/lib/email/alerts";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
@@ -128,6 +129,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     }
     await q.query("insert into order_status_history (order_id, from_status, to_status, actor) values ($1, null, 'pending_confirmation', 'customer')", [orderId]);
     await q.query("insert into analytics_events(name, path) values ('order_placed', '/checkout')");
+    await queueStaffAlert(q, "order", orderNumber, `${lines.reduce((s, l) => s + l.quantity, 0)} item(s), ${new Intl.NumberFormat("en-PK").format(totals.total)} PKR, ${input.paymentMethod === "cod" ? "cash on delivery" : "bank transfer"}, ${input.city.slice(0, 40)}`);
     if (input.email) {
       await q.query(
         "insert into notification_outbox (kind, recipient, payload, dedupe_key) values ('order_received', $1, $2, $3) on conflict (dedupe_key) do nothing",

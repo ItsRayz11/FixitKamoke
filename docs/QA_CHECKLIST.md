@@ -37,7 +37,19 @@ Automated checks run with `npm test` (Vitest) and `npx playwright test` (browser
 
 ## Responsive and performance
 - [x] No horizontal overflow on key pages at desktop and Pixel 7 sizes
-- [ ] MANUAL: test on a low-end Android over a slow connection; run Lighthouse on the live URL; record LCP/INP/CLS. Targets: LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1. **No measurements have been taken yet.**
+- [ ] MANUAL: test on a real low-end Android over a slow connection; run Lighthouse/PageSpeed on the live URL; record LCP, INP and CLS. Targets: LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1. Only lab numbers on the build machine exist so far (see the production-mode suite below); INP has not been measured at all.
+
+## Production-mode suite (`npm run build && npm run test:prod`)
+- [x] Runs the real build against a real Postgres wire connection with no demo/test switches
+- [x] Test/seed endpoints return 404; security headers, CSP and HSTS present; robots/sitemap correct
+- [x] Fresh shop shows honest empty states; owner setup; configure delivery + product; guest order; stock drops
+- [x] Rendered pages contain no server secret; customer-entered markup and SQL-like text are inert
+- [x] Repeated wrong admin sign-ins are throttled under production limits
+- [x] Lab performance on slow 4G + 4x CPU, mobile viewport (localhost server): LCP about 0.85-1.0 s, CLS at most 0.036, JS about 175 KB, no product photos yet. Re-measure on the live site.
+- [x] `npm run check:secrets` builds with sentinel secrets and finds none in client files
+
+## Link integrity (dev suite)
+- [x] Crawler follows every storefront link (36 pages) and every admin link as owner (29 pages): no broken page and no console error
 
 ## Before each release
 `npm run lint && npx tsc --noEmit && npm test && npx playwright test && npm run build`

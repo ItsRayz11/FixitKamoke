@@ -23,7 +23,8 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
           {t("whatsappNumber", "WhatsApp number", "Digits with country code, e.g. 923001234567.")}
           {t("address", "Shop address")}
           {t("openingHours", "Opening hours", "e.g. Mon–Sat 10am–8pm. Only enter what is true.")}
-          {t("contactEmail", "Contact email", undefined, "email")}
+          {t("contactEmail", "Contact email", "Shown to customers, and where alerts are sent if switched on below.", "email")}
+          <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name="notifyStaffByEmail" defaultChecked={s.notifyStaffByEmail} className="h-5 w-5" /> Email me when a new order, repair request or message arrives</label>
           {t("mapsUrl", "Google Maps link", "The “Share” link for your shop.", "url")}
           {t("mapsEmbedUrl", "Google Maps embed link", "From Google Maps → Share → Embed a map → the src value.", "url")}
         </fieldset>

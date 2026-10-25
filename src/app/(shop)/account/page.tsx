@@ -27,11 +27,11 @@ export default async function AccountPage() {
         <ul className="mt-4 divide-y divide-line rounded-[var(--radius-md)] border border-line bg-surface">
           {orders.map((o) => (
             <li key={o.order_number} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-              <div><p className="font-bold">{o.order_number}</p><p className="text-muted">{fmtDate(o.created_at)} · {o.items} item{o.items === 1 ? "" : "s"}</p></div>
+              <div><p className="font-bold"><Link href={`/account/orders/${o.order_number}`} className="text-accent underline">{o.order_number}</Link></p><p className="text-muted">{fmtDate(o.created_at)} · {o.items} item{o.items === 1 ? "" : "s"}</p></div>
               <div className="text-right"><p className="font-bold">{formatPKR(o.total)}</p><p className="text-accent">{STATUS_LABEL[o.status] ?? o.status}</p></div>
               <div className="flex w-full items-center gap-4 text-xs font-semibold sm:w-auto">
                 <form action={reorderAction}><input type="hidden" name="order" value={o.order_number} /><button className="min-h-11 text-accent underline">Order again</button></form>
-                <Link href="/track" className="text-accent underline">Track</Link>
+                <Link href={`/account/orders/${o.order_number}`} className="text-accent underline">View details</Link>
               </div>
             </li>
           ))}

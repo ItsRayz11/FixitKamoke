@@ -1,6 +1,6 @@
 import type { Db } from "@/lib/db";
 import { REPAIR_LABEL, type RepairStatus } from "@/lib/domain/repair-state";
-import { renderOrderEmail, renderPasswordReset, renderRepairEmail, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
+import { renderOrderEmail, renderPasswordReset, renderRepairEmail, renderStaffAlert, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
 
 export interface EmailConfig { apiKey: string; from: string }
 export type SendFn = (msg: { to: string; subject: string; html: string; text: string; idempotencyKey: string }) => Promise<void>;
@@ -35,6 +35,7 @@ const expireAfter = (kind: string) => (kind === "password_reset" ? 3600_000 : EX
 interface OutboxRow { id: string; kind: string; recipient: string; payload: Record<string, string>; attempts: number; dedupe_key: string; created_at: Date | string }
 
 async function render(db: Db, row: OutboxRow, ctx: EmailContext): Promise<Rendered | null> {
+  if (row.kind === "staff_alert") return renderStaffAlert(row.payload.kind, row.payload.ref, row.payload.summary ?? "", ctx);
   if (row.kind === "password_reset") return row.payload.resetToken ? renderPasswordReset(row.payload.resetToken, ctx) : null;
   if (row.kind.startsWith("order_")) {
     const o = (await db.query<{ id: string; order_number: string; customer_name: string; status: string; payment_method: string; subtotal: number; discount: number; shipping_fee: number; shipping_status: string; total: number }>(

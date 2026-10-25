@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { clientIp } from "@/lib/client-ip";
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
@@ -12,7 +13,7 @@ import {
 } from "@/lib/customers/customers";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
 
-const ip = async () => (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+const ip = async () => clientIp((await headers()).get.bind(await headers()));
 const str = (f: FormData, k: string) => String(f.get(k) ?? "");
 
 /** Only same-site paths are allowed as a post-login destination (prevents open redirects). */
