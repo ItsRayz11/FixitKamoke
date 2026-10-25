@@ -14,6 +14,7 @@ const NAV: { href: string; label: string; min: "staff" | "manager" | "owner" }[]
   { href: "/admin/blog", label: "Blog", min: "manager" },
   { href: "/admin/reviews", label: "Reviews", min: "manager" },
   { href: "/admin/customers", label: "Customers", min: "manager" },
+  { href: "/admin/subscribers", label: "Email list", min: "manager" },
   { href: "/admin/shipping", label: "Shipping", min: "manager" },
   { href: "/admin/settings", label: "Store settings", min: "owner" },
   { href: "/admin/email", label: "Email status", min: "owner" },

@@ -121,6 +121,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
       );
     }
     await q.query("insert into order_status_history (order_id, from_status, to_status, actor) values ($1, null, 'pending_confirmation', 'customer')", [orderId]);
+    await q.query("insert into analytics_events(name, path) values ('order_placed', '/checkout')");
     if (input.email) {
       await q.query(
         "insert into notification_outbox (kind, recipient, payload, dedupe_key) values ('order_received', $1, $2, $3) on conflict (dedupe_key) do nothing",

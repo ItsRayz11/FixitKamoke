@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getStore } from "@/lib/settings";
 import { site } from "@/config/site";
+import { NewsletterForm } from "./newsletter-form";
 
 const links = [
   ["Shipping & delivery", "/policies/shipping"],
@@ -51,6 +52,7 @@ export async function SiteFooter() {
           )}
         </div>
       </div>
+      <div className="container-x border-t border-white/10 py-6"><div className="max-w-md"><NewsletterForm /></div></div>
       <div className="border-t border-white/10 py-4 text-center text-xs">© {new Date().getFullYear()} Fixit. All rights reserved.</div>
     </footer>
   );

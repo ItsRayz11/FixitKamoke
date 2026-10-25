@@ -1,12 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCartView } from "@/components/cart/use-cart-view";
 import { formatPKR } from "@/lib/domain/money";
 
 export default function CartPage() {
   const { cart, view, loading, failed } = useCartView();
+  const router = useRouter();
+  const addParam = useSearchParams().get("add");
+  const seeded = useRef(false);
+  // "Order again" arrives as ?add=<id>:<qty>,... : validate strictly, add to the browser cart once, then clean the URL.
+  useEffect(() => {
+    if (!addParam || seeded.current || !cart.ready) return;
+    seeded.current = true;
+    for (const part of addParam.split(",").slice(0, 20)) {
+      const [id, q] = part.split(":");
+      const qty = Number(q);
+      if (/^[0-9a-f-]{36}$/i.test(id) && Number.isInteger(qty) && qty >= 1 && qty <= 50) cart.add(id, qty);
+    }
+    router.replace("/cart");
+  }, [addParam, cart, router]);
   const [confirmClear, setConfirmClear] = useState(false);
 
   // Drop products the server says no longer exist.

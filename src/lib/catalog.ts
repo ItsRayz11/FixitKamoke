@@ -111,3 +111,13 @@ export async function relatedProducts(p: Product, limit = 4): Promise<Product[]>
   );
   return rows.map(map);
 }
+
+/** Other products listed for at least one of the same phones. Real data only: nothing is shown unless the compatibility lists overlap. */
+export async function compatibleProducts(p: Product, limit = 4): Promise<Product[]> {
+  if (p.compatibleDevices.length === 0) return [];
+  const db = await getDb();
+  const rows = await db.query<Row>(
+    `${SELECT} where p.published and p.id <> $1 and p.compatible_devices && $2::text[] order by p.stock > 0 desc, p.created_at desc limit ${limit}`,
+    [p.id, p.compatibleDevices]);
+  return rows.map(map);
+}

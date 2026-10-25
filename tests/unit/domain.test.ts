@@ -67,3 +67,21 @@ describe("order state machine", () => {
     expect(nextStatuses("cancelled")).toEqual([]);
   });
 });
+
+import { rateLimit } from "@/lib/rate-limit";
+
+describe("rate limiter", () => {
+  it("allows up to the limit inside a window, then blocks, and keys are independent", () => {
+    const k = `t-${Math.random()}`;
+    for (let i = 0; i < 3; i++) expect(rateLimit(k, 3, 60_000)).toBe(true);
+    expect(rateLimit(k, 3, 60_000)).toBe(false);
+    expect(rateLimit(`${k}-other`, 3, 60_000)).toBe(true);
+  });
+  it("starts a fresh window after it expires", async () => {
+    const k = `t-${Math.random()}`;
+    expect(rateLimit(k, 1, 20)).toBe(true);
+    expect(rateLimit(k, 1, 20)).toBe(false);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(rateLimit(k, 1, 20)).toBe(true);
+  });
+});

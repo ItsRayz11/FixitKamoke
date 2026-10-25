@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { track } from "@/lib/track";
 
 /** The browser cart only stores product ids and quantities. Prices and stock are always re-read on the server. */
 export interface CartLine { productId: string; quantity: number }
@@ -66,6 +67,7 @@ const actions = {
     commit(found
       ? cur.map((l) => (l.productId === productId ? { ...l, quantity: Math.min(MAX_QTY, l.quantity + quantity) } : l))
       : [...cur, { productId, quantity: Math.min(MAX_QTY, quantity) }]);
+    track("add_to_cart");
     lastAdded = label ?? "Item";
     clearTimeout(toastTimer);
     toastTimer = setTimeout(actions.dismissToast, 4000);

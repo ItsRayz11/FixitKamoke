@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCartView } from "@/components/cart/use-cart-view";
 import { getCheckoutPrefill, getShippingView, placeOrder, type CheckoutPrefill, type ShippingView } from "@/app/actions/checkout";
 import { formatPKR } from "@/lib/domain/money";
+import { track } from "@/lib/track";
 
 const field = "mt-1 h-12 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-base";
 
@@ -20,12 +21,29 @@ export default function CheckoutPage() {
   const [pending, start] = useTransition();
   // One key per page visit: a double-click or network retry cannot create a second order.
   const idem = useRef<string>("");
-  const [prefill, setPrefill] = useState<CheckoutPrefill | null>(null);
   useEffect(() => {
     idem.current = crypto.randomUUID() + crypto.randomUUID();
-    // Signed-in customers get their details filled in; guests get nothing and lose nothing.
-    getCheckoutPrefill().then((p) => { if (p) { setPrefill(p); setCity(p.city); } }).catch(() => {});
+    track("checkout_start");
+    // Signed-in customers get their details filled in. Only fields that are still empty are touched,
+    // so anything the customer has already typed is never overwritten.
+    getCheckoutPrefill().then((p: CheckoutPrefill | null) => {
+      if (!p) return;
+      const fill = (id: string, value: string) => {
+        const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+        if (el && value && !el.value) {
+          // Set through the native setter so the browser form sees the value, and React stays in sync for controlled inputs.
+          const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(el, value);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      };
+      fill("customerName", p.name); fill("phone", p.phone); fill("email", p.email); fill("city", p.city); fill("area", p.area); fill("address", p.address);
+    }).catch(() => {});
   }, []);
+
+  // The city field is uncontrolled, so text typed or autofilled before this page finished loading is kept;
+  // this picks it up as soon as the field is attached.
+  const cityRef = useCallback((el: HTMLInputElement | null) => { if (el?.value) setCity(el.value); }, []);
 
   const subtotal = view?.subtotal ?? 0;
   useEffect(() => {
@@ -81,13 +99,13 @@ export default function CheckoutPage() {
       {error && <p role="alert" className="mt-4 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm font-semibold text-danger">{error.message}</p>}
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]" noValidate>
-        <div className="space-y-4" key={prefill ? "prefilled" : "blank"}>
-          <div><label htmlFor="customerName" className="font-semibold">Full name</label><input id="customerName" name="customerName" defaultValue={prefill?.name ?? ""} autoComplete="name" required className={field} />{err("customerName")}</div>
-          <div><label htmlFor="phone" className="font-semibold">Mobile number</label><input id="phone" name="phone" defaultValue={prefill?.phone ?? ""} type="tel" inputMode="tel" autoComplete="tel" placeholder="03XX XXXXXXX" required className={field} />{err("phone")}</div>
-          <div><label htmlFor="email" className="font-semibold">Email <span className="font-normal text-muted">(optional, for order updates)</span></label><input id="email" name="email" defaultValue={prefill?.email ?? ""} type="email" autoComplete="email" className={field} />{err("email")}</div>
-          <div><label htmlFor="city" className="font-semibold">City</label><input id="city" name="city" autoComplete="address-level2" required value={city} onChange={(e) => setCity(e.target.value)} className={field} />{err("city")}</div>
-          <div><label htmlFor="area" className="font-semibold">Area / locality <span className="font-normal text-muted">(optional)</span></label><input id="area" name="area" defaultValue={prefill?.area ?? ""} className={field} /></div>
-          <div><label htmlFor="address" className="font-semibold">Complete delivery address</label><textarea id="address" name="address" defaultValue={prefill?.address ?? ""} required rows={3} autoComplete="street-address" className={`${field} h-auto py-2`} />{err("address")}</div>
+        <div className="space-y-4">
+          <div><label htmlFor="customerName" className="font-semibold">Full name</label><input id="customerName" name="customerName" autoComplete="name" required className={field} />{err("customerName")}</div>
+          <div><label htmlFor="phone" className="font-semibold">Mobile number</label><input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="03XX XXXXXXX" required className={field} />{err("phone")}</div>
+          <div><label htmlFor="email" className="font-semibold">Email <span className="font-normal text-muted">(optional, for order updates)</span></label><input id="email" name="email" type="email" autoComplete="email" className={field} />{err("email")}</div>
+          <div><label htmlFor="city" className="font-semibold">City</label><input id="city" name="city" ref={cityRef} autoComplete="address-level2" required defaultValue="" onInput={(e) => setCity(e.currentTarget.value)} className={field} />{err("city")}</div>
+          <div><label htmlFor="area" className="font-semibold">Area / locality <span className="font-normal text-muted">(optional)</span></label><input id="area" name="area" className={field} /></div>
+          <div><label htmlFor="address" className="font-semibold">Complete delivery address</label><textarea id="address" name="address" required rows={3} autoComplete="street-address" className={`${field} h-auto py-2`} />{err("address")}</div>
           <div><label htmlFor="notes" className="font-semibold">Order notes <span className="font-normal text-muted">(optional)</span></label><textarea id="notes" name="notes" rows={2} className={`${field} h-auto py-2`} /></div>
           <div><label htmlFor="couponCode" className="font-semibold">Coupon code <span className="font-normal text-muted">(optional)</span></label><input id="couponCode" name="couponCode" className={field} autoCapitalize="characters" /></div>
 

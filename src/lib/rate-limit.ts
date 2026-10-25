@@ -6,6 +6,9 @@
 const hits = new Map<string, { count: number; reset: number }>();
 
 export function rateLimit(key: string, limit: number, windowMs: number): boolean {
+  // Only ever set on the end-to-end test server, so a full browser run is not locked out by its own sign-ins.
+  const factor = Math.max(1, Number(process.env.RATE_LIMIT_MULTIPLIER ?? 1) || 1);
+  limit = Math.floor(limit * factor);
   const now = Date.now();
   const h = hits.get(key);
   if (!h || h.reset < now) {

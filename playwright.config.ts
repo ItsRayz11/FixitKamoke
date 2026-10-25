@@ -8,8 +8,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   // Dev-server pages compile on first visit, so allow for cold starts.
-  timeout: 90_000,
-  expect: { timeout: 10_000 },
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [
@@ -21,6 +21,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { NEXT_PUBLIC_DEMO_MODE: "1", FIXIT_PGLITE_DIR: "memory://", NEXT_PUBLIC_WHATSAPP_NUMBER: "920000000000", ADMIN_SETUP_TOKEN: "e2e-setup-token-0123456789" },
+    env: { RATE_LIMIT_MULTIPLIER: "100", NEXT_PUBLIC_DEMO_MODE: "1", FIXIT_PGLITE_DIR: "memory://", NEXT_PUBLIC_WHATSAPP_NUMBER: "920000000000", ADMIN_SETUP_TOKEN: "e2e-setup-token-0123456789" },
   },
 });

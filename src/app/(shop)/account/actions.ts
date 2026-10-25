@@ -148,3 +148,14 @@ export async function toggleWishlistAction(form: FormData) {
   await toggleWishlist(await getDb(), c.id, productId);
   redirect(`/product/${slug}`);
 }
+
+/** Puts the still-available items from a past order back in the cart. Quantities are capped to current stock. */
+export async function reorderAction(form: FormData) {
+  const c = await mustBeCustomer();
+  const db = await getDb();
+  const items = await db.query<{ product_id: string; quantity: number; stock: number }>(
+    `select i.product_id, i.quantity, p.stock from orders o join order_items i on i.order_id = o.id join products p on p.id = i.product_id
+     where o.order_number = $1 and o.customer_id = $2 and p.published and p.stock > 0`, [str(form, "order"), c.id]);
+  if (items.length === 0) flash("/account", { error: "None of the items from that order are available right now." });
+  redirect(`/cart?add=${items.map((i) => `${i.product_id}:${Math.min(i.quantity, i.stock)}`).join(",")}`);
+}

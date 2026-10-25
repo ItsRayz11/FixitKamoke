@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { availability, effectivePrice, getProductBySlug, relatedProducts } from "@/lib/catalog";
+import { availability, compatibleProducts, effectivePrice, getProductBySlug, relatedProducts } from "@/lib/catalog";
+import { ProductView } from "@/components/product/product-view";
+import { RecentlyViewed } from "@/components/product/recently-viewed";
 import { site } from "@/config/site";
 import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -34,8 +36,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   if (!p) notFound();
   const db = await getDb();
   const customer = await getCustomer();
-  const [related, reviews, reviewState, saved] = await Promise.all([
+  const [related, compatible, reviews, reviewState, saved] = await Promise.all([
     relatedProducts(p),
+    compatibleProducts(p),
     approvedReviews(db, p.id),
     customer ? canReview(db, customer.id, p.id) : Promise.resolve(null),
     customer ? db.query("select 1 from wishlist_items where customer_id = $1 and product_id = $2", [customer.id, p.id]).then((r) => r.length > 0) : Promise.resolve(false),
@@ -77,6 +80,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="container-x py-8">
+      <ProductView productId={p.id} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <nav aria-label="Breadcrumb" className="text-sm text-muted">
         <Link href="/shop" className="hover:text-accent">Shop</Link>
@@ -172,6 +176,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         {reviewState === "not_purchased" && <p className="mt-3 text-xs text-muted">Signed-in customers who have received this product can leave a review.</p>}
       </section>
 
+      {compatible.length > 0 && (
+        <section className="mt-12" aria-labelledby="compat">
+          <h2 id="compat" className="text-lg font-bold">Other accessories for the same phones</h2>
+          <ul className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">{compatible.map((r) => <li key={r.id}><ProductCard product={r} /></li>)}</ul>
+        </section>
+      )}
+
       {related.length > 0 && (
         <section className="mt-12" aria-labelledby="rel">
           <h2 id="rel" className="text-lg font-bold">Related products</h2>
@@ -180,6 +191,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
           </ul>
         </section>
       )}
+      <div className="-mx-4 mt-10"><RecentlyViewed excludeId={p.id} /></div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { listCategories, listProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product/product-card";
 import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
+import { RecentlyViewed } from "@/components/product/recently-viewed";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,8 @@ export default async function HomePage() {
           </ul>
         )}
       </section>
+
+      <RecentlyViewed />
 
       <section className="bg-surface py-12">
         <div className="container-x grid gap-8 md:grid-cols-2">
