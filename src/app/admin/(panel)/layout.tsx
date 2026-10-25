@@ -6,6 +6,7 @@ const NAV: { href: string; label: string; min: "staff" | "manager" | "owner" }[]
   { href: "/admin", label: "Dashboard", min: "staff" },
   { href: "/admin/orders", label: "Orders", min: "staff" },
   { href: "/admin/repairs", label: "Repairs", min: "staff" },
+  { href: "/admin/messages", label: "Messages", min: "staff" },
   { href: "/admin/products", label: "Products", min: "manager" },
   { href: "/admin/categories", label: "Categories", min: "manager" },
   { href: "/admin/inventory", label: "Inventory", min: "manager" },

@@ -7,12 +7,12 @@ import { quoteShipping, type ShippingConfig } from "@/lib/domain/shipping";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
-  customerName: z.string().trim().min(2).max(100),
-  phone: z.string().trim().min(10).max(20),
-  email: z.string().trim().email().max(200).optional().or(z.literal("").transform(() => undefined)),
-  city: z.string().trim().min(2).max(80),
+  customerName: z.string().trim().min(2, "Please enter your full name").max(100, "That name is too long"),
+  phone: z.string().trim().min(10, "Please enter a valid Pakistani mobile number.").max(20, "Please enter a valid Pakistani mobile number."),
+  email: z.string().trim().email("Please enter a valid email address").max(200).optional().or(z.literal("").transform(() => undefined)),
+  city: z.string().trim().min(2, "Please enter your city").max(80),
   area: z.string().trim().max(120).optional(),
-  address: z.string().trim().min(8).max(500),
+  address: z.string().trim().min(8, "Please enter your complete delivery address").max(500, "That address is too long"),
   notes: z.string().trim().max(500).optional(),
   paymentMethod: z.enum(["cod", "bank_transfer"]),
   couponCode: z.string().trim().max(40).optional(),

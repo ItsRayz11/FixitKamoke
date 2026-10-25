@@ -17,7 +17,8 @@ export function StockBadge({ stock }: { stock: number }) {
 export function ProductCard({ product: p }: { product: Product }) {
   return (
     <article className="group flex flex-col overflow-hidden rounded-[var(--radius-md)] border border-line bg-surface shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)] motion-reduce:transition-none motion-reduce:hover:transform-none">
-      <Link href={`/product/${p.slug}`} className="block" aria-label={p.name}>
+      {/* The picture link duplicates the title link below, so it is hidden from keyboard and screen-reader users. */}
+      <Link href={`/product/${p.slug}`} className="block" aria-hidden="true" tabIndex={-1}>
         <div className="relative aspect-square bg-canvas">
           {p.image ? (
             // eslint-disable-next-line @next/next/no-img-element -- remote owner-supplied URLs; sized by aspect box to avoid layout shift

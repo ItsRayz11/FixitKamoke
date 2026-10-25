@@ -28,9 +28,10 @@ export function SiteHeader({ whatsapp }: { whatsapp: string | null }) {
               WhatsApp
             </a>
           )}
-          <Link href="/cart" className="relative inline-flex min-h-11 items-center rounded-full bg-accent px-4 text-sm font-semibold hover:bg-accent-strong" aria-label={`Cart, ${ready ? count : 0} items`}>
+          <Link href="/cart" className="relative inline-flex min-h-11 items-center rounded-full bg-accent px-4 text-sm font-semibold hover:bg-accent-strong">
             Cart
             <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs font-bold text-accent" data-testid="cart-count">{ready ? count : 0}</span>
+            <span className="sr-only"> items</span>
           </Link>
         </div>
       </div>

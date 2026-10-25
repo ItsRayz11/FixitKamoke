@@ -27,6 +27,12 @@ export const storeSettingsSchema = z.object({
   heroSubtitle: z.string().trim().max(300).nullable(),
   announcement: z.string().trim().max(160).nullable(),
   policiesApproved: z.boolean(),
+  /** Repair types the shop really offers. Empty means "tell us the problem", never a guessed list. */
+  repairServices: z.array(z.string().trim().min(1).max(80)).max(30),
+  /** Owner-written specifics for policy pages (Markdown). Null shows "to be confirmed". */
+  shippingTerms: z.string().trim().max(4000).nullable(),
+  returnsTerms: z.string().trim().max(4000).nullable(),
+  warrantyTerms: z.string().trim().max(4000).nullable(),
 });
 export type StoreSettings = z.infer<typeof storeSettingsSchema>;
 
@@ -51,6 +57,10 @@ export const defaultSettings = (): StoreSettings => ({
   heroSubtitle: null,
   announcement: null,
   policiesApproved: false,
+  repairServices: [],
+  shippingTerms: null,
+  returnsTerms: null,
+  warrantyTerms: null,
 });
 
 export async function getStore(): Promise<StoreSettings> {

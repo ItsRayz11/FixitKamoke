@@ -38,10 +38,21 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
           {t("announcement", "Announcement bar", "Only verified offers or delivery notices. Empty hides the bar.")}
           {t("heroTitle", "Hero headline")}{t("heroSubtitle", "Hero text")}
         </fieldset>
+        <fieldset className="space-y-4"><legend className="text-lg font-bold">Repair services</legend>
+          <Field label="Repairs you actually offer" id="repairServices" hint="One per line, e.g. Screen replacement. Shown on the repair page and as choices in the request form. Leave empty to show no list.">
+            <textarea id="repairServices" name="repairServices" rows={5} defaultValue={s.repairServices.join("\n")} className={`${inputCls} h-auto py-2`} />
+          </Field>
+        </fieldset>
         <fieldset className="space-y-4"><legend className="text-lg font-bold">About page: founder</legend>
           <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name="showFounder" defaultChecked={s.showFounder} className="h-5 w-5" /> Show a founder section (Ali Hassan) on the About page</label>
           <Field label="Founder message" id="founderMessage" hint="Only text Ali Hassan has approved."><textarea id="founderMessage" name="founderMessage" rows={3} defaultValue={s.founderMessage ?? ""} className={`${inputCls} h-auto py-2`} /></Field>
           {t("founderPhotoUrl", "Founder photo URL", "A real photo he has approved. https only.", "url")}
+        </fieldset>
+        <fieldset className="space-y-4"><legend className="text-lg font-bold">Policy specifics</legend>
+          <p className="text-sm text-muted">Your own approved wording, shown on the policy pages (simple formatting: **bold**, - lists, [links](https://…)). Leave empty to show “to be confirmed”. Do not copy terms you have not decided.</p>
+          <Field label="Delivery terms" id="shippingTerms"><textarea id="shippingTerms" name="shippingTerms" rows={4} defaultValue={s.shippingTerms ?? ""} className={`${inputCls} h-auto py-2`} /></Field>
+          <Field label="Returns and refunds terms" id="returnsTerms" hint="For example the return window and conditions, only once decided."><textarea id="returnsTerms" name="returnsTerms" rows={4} defaultValue={s.returnsTerms ?? ""} className={`${inputCls} h-auto py-2`} /></Field>
+          <Field label="Warranty terms" id="warrantyTerms"><textarea id="warrantyTerms" name="warrantyTerms" rows={4} defaultValue={s.warrantyTerms ?? ""} className={`${inputCls} h-auto py-2`} /></Field>
         </fieldset>
         <fieldset className="space-y-3"><legend className="text-lg font-bold">Policies</legend>
           <label className="flex items-start gap-3 text-sm font-semibold"><input type="checkbox" name="policiesApproved" defaultChecked={s.policiesApproved} className="mt-0.5 h-5 w-5" /> I have reviewed and approved the shipping, returns, warranty, privacy and terms pages. (Removes the “draft” notice.)</label>
