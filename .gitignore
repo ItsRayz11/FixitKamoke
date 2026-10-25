@@ -46,3 +46,6 @@ next-env.d.ts
 .env.local
 /test-results
 /playwright-report
+
+# keep the documented template of variable names (it contains no secrets)
+!.env.example
