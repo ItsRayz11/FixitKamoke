@@ -10,7 +10,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "test:prod": "playwright test -c playwright.prod.config.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.11",

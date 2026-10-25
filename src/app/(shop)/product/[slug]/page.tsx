@@ -92,7 +92,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         <div className="aspect-square overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface">
           {p.image ? (
             // eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote URL
-            <img src={p.image.url} alt={p.image.alt} width={800} height={800} className="h-full w-full object-cover" />
+            <img src={p.image.url} alt={p.image.alt} width={800} height={800} fetchPriority="high" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-muted">Photo coming soon</div>
           )}
