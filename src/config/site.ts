@@ -13,7 +13,8 @@ export const site = {
   tagline: "Mobile repair and accessories in Kamoki",
   founder: "Ali Hassan",
   currency: "PKR",
-  baseUrl: env("NEXT_PUBLIC_SITE_URL") ?? "http://localhost:3000",
+  // SITE_URL is read at run time; NEXT_PUBLIC_SITE_URL is baked in at build time. Prefer SITE_URL.
+  baseUrl: (env("SITE_URL") ?? env("NEXT_PUBLIC_SITE_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
   /** E.164 digits only, no plus sign, e.g. 923001234567. Owner must supply. */
   whatsappNumber: env("NEXT_PUBLIC_WHATSAPP_NUMBER")?.replace(/\D/g, "") ?? null,
   address: env("NEXT_PUBLIC_SHOP_ADDRESS"),

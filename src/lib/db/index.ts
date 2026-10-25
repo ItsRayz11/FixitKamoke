@@ -29,7 +29,21 @@ export async function createPgliteDb(dataDir?: string): Promise<Db> {
 /** Real Postgres (Supabase, Neon, any). Uses DATABASE_URL. */
 export async function createPostgresDb(url: string): Promise<Db> {
   const postgres = (await import("postgres")).default;
-  const sql = postgres(url, { max: 5, prepare: false });
+  // Pool size is configurable: serverless hosts usually want a small pool (they open many instances).
+  const sql = postgres(url, {
+    max: Math.max(1, Number(process.env.DATABASE_POOL_MAX) || 5),
+    prepare: false,
+    // All callers pass JSON as an already-serialised string (as the embedded driver expects). By default this driver would
+    // JSON.stringify that string a second time and store an escaped string instead of an object. Pass strings through as-is.
+    types: {
+      json: {
+        to: 114,
+        from: [114, 3802],
+        serialize: (x: unknown) => (typeof x === "string" ? x : JSON.stringify(x)),
+        parse: (x: string) => JSON.parse(x),
+      },
+    },
+  });
   const wrap = (s: typeof sql): Queryable => ({
     async query<T>(text: string, params: unknown[] = []) {
       return (await s.unsafe(text, params as never[])) as unknown as T[];

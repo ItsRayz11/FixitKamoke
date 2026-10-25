@@ -13,10 +13,10 @@ Do not run the live shop on Vercel Hobby (non-commercial) or on a database plan 
    DATABASE_URL="postgresql://…" npm run db:migrate
    ```
    It applies `db/migrations/*.sql` in order, once each, inside transactions. Take a backup before every future migration.
-4. Supabase only: the migrations enable Row Level Security on every table and revoke API roles, so the public Supabase API cannot read your data. The app connects as the database owner with `DATABASE_URL`.
+4. Use the same database role to run migrations and to run the app (row level security is bypassed by the table owner). Supabase only: the migrations enable Row Level Security on every table and revoke API roles, so the public Supabase API cannot read your data. The app connects as the database owner with `DATABASE_URL`.
 
 ## 2. Environment variables
-Set the variables in `.env.example` on the host (Production scope). Required: `DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_SETUP_TOKEN`. Do **not** set `NEXT_PUBLIC_DEMO_MODE`, `FIXIT_PGLITE_DIR` or `RATE_LIMIT_MULTIPLIER`. Never commit `.env*` files (they are git-ignored).
+Set the variables in `.env.example` on the host (Production scope). Required: `DATABASE_URL`, `SITE_URL`, `ADMIN_SETUP_TOKEN`. (`NEXT_PUBLIC_*` values are baked in when the site is built, so changing one needs a rebuild; `SITE_URL` is read at run time.) Do **not** set `NEXT_PUBLIC_DEMO_MODE`, `FIXIT_PGLITE_DIR` or `RATE_LIMIT_MULTIPLIER`. Never commit `.env*` files (they are git-ignored).
 
 ## 3. Build and run
 ```
@@ -27,7 +27,7 @@ npm start        # or let the host run it
 Node 20.19+ / 22 / 24. On Vercel, import the repository, set the environment variables, deploy. Add the cron below.
 
 ## 4. Domain and HTTPS
-Buy the domain (availability of fixit.com / fixitkamoki.com is unverified), add it in the host, create the DNS records it shows, wait for the certificate, then confirm `https://` loads and `http://` redirects. Set `NEXT_PUBLIC_SITE_URL` to the final address and redeploy.
+Buy the domain (availability of fixit.com / fixitkamoki.com is unverified), add it in the host, create the DNS records it shows, wait for the certificate, then confirm `https://` loads and `http://` redirects. Set `SITE_URL` to the final address and redeploy.
 
 ## 5. First owner account
 Open `https://YOUR-DOMAIN/admin/setup`, enter `ADMIN_SETUP_TOKEN`, your name, email and a strong password. The page disappears once an owner exists. Then **remove `ADMIN_SETUP_TOKEN`** from the host. Create staff under Admin → Staff.
