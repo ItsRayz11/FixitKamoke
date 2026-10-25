@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { availability, effectivePrice, getProductBySlug, relatedProducts } from "@/lib/catalog";
 import { site } from "@/config/site";
+import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
 import { Price } from "@/components/ui/price";
 import { AddToCartButton } from "@/components/cart/add-to-cart";
@@ -27,7 +28,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   if (!p) notFound();
   const related = await relatedProducts(p);
   const url = `${site.baseUrl}/product/${p.slug}`;
-  const wa = whatsappLink({ kind: "product", name: p.name, url });
+  const store = await getStore();
+  const wa = whatsappLink({ kind: "product", name: p.name, url }, store.whatsappNumber);
   const a = availability(p.stock);
 
   // Structured data uses only real catalogue facts. No ratings or review counts are ever emitted.

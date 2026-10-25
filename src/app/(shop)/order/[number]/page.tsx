@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { findOrderByToken } from "@/lib/orders/lookup";
 import { OrderDetails } from "@/components/order/order-details";
 import { whatsappLink } from "@/lib/whatsapp";
+import { getStore } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 // Private page: never index, never cache shared.
@@ -22,7 +23,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       </div>
     );
   }
-  const wa = whatsappLink({ kind: "order", orderNumber: order.orderNumber });
+  const wa = whatsappLink({ kind: "order", orderNumber: order.orderNumber }, (await getStore()).whatsappNumber);
   return (
     <div className="container-x max-w-2xl py-10">
       <h1 className="text-2xl font-extrabold">Thank you, {order.customerName.split(" ")[0]}. Your order is received.</h1>

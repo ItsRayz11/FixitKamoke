@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { listCategories, listProducts } from "@/lib/catalog";
 import { ProductCard } from "@/components/product/product-card";
-import { site } from "@/config/site";
+import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [categories, featured] = await Promise.all([listCategories(), listProducts({ inStock: true, limit: 8 })]);
-  const wa = whatsappLink({ kind: "general" });
+  const store = await getStore();
+  const wa = whatsappLink({ kind: "general" }, store.whatsappNumber);
 
   return (
     <>
@@ -16,10 +17,10 @@ export default async function HomePage() {
         <div className="container-x py-14 sm:py-20">
           <p className="text-sm font-semibold uppercase tracking-widest text-cyan">Kamoki, Punjab</p>
           <h1 className="mt-3 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            Phone repairs and accessories you can order in minutes.
+            {store.heroTitle ?? "Phone repairs and accessories you can order in minutes."}
           </h1>
           <p className="mt-4 max-w-xl text-slate-300">
-            Browse chargers, cases and more with clear PKR prices, or book a repair and we will confirm the details with you before any work starts.
+            {store.heroSubtitle ?? "Browse chargers, cases and more with clear PKR prices, or book a repair and we will confirm the details with you before any work starts."}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/shop" className="inline-flex min-h-12 items-center rounded-[var(--radius-sm)] bg-accent px-6 font-semibold hover:bg-accent-strong">Shop accessories</Link>
@@ -70,7 +71,7 @@ export default async function HomePage() {
           <div>
             <h2 className="text-xl font-bold">Delivery</h2>
             <p className="mt-2 text-muted">Delivery fees and times are shown at checkout before you place an order. If we cannot confirm a rate for your city automatically, we will tell you before the order is confirmed.</p>
-            {site.address && <p className="mt-3 text-sm"><strong>Shop:</strong> {site.address}</p>}
+            {store.address && <p className="mt-3 text-sm"><strong>Shop:</strong> {store.address}</p>}
           </div>
         </div>
       </section>

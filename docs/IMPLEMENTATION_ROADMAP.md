@@ -1,0 +1,23 @@
+# Fixit — Implementation Roadmap
+
+Rule: build one phase, cross-check it (types, lint, unit/integration/e2e, browser look, security, a11y), fix defects, update PROJECT_STATUS.md, then continue. A phase is not done because its UI exists.
+
+Owner approvals (2026-10-25): build everything in this list, including customer accounts, shadcn/ui, payment-gateway layer (COD + bank transfer live; gateways disabled until merchant credentials), English first with Urdu later.
+
+| Phase | Scope | Status |
+|---|---|---|
+| A | Foundation, domain logic, schema, orders, storefront, cart, checkout, tracking | DONE (2026-10-25) |
+| B | DB-backed store settings; auth core (scrypt, sessions); admin login + owner setup; role guards; audit log | DONE (2026-10-25) |
+| C | Admin: dashboard, products, categories, inventory, orders (status machine + restock), coupons, shipping editor, store settings, users, audit, customers, reviews | DONE except repairs/blog/email pages (phases D, F, G) |
+| D | Repair booking (public) + token tracking + admin repair management | todo |
+| E | Content pages: about, contact+map, FAQ, 5 policies (drafts, flagged unapproved), 404/error/maintenance | todo |
+| F | Blog: model, admin editor, public pages, 4 original articles (drafts for owner review) | todo |
+| G | Email: Resend adapter, outbox processor, templates, admin email status | todo |
+| H | SEO: sitemap, robots, metadata, JSON-LD, noindex private pages | todo |
+| I | Customer accounts: register/login, order history, addresses, wishlist, deletion request | todo |
+| J | Retention: recently viewed, compatible accessories, consent-based email signup + unsubscribe, privacy-minimal analytics events | todo |
+| K | Payments layer: provider interface, bank-transfer details, payment status, gateway adapters disabled | todo |
+| L | shadcn/ui primitives (dialog, sheet, accordion), Motion animations, reduced-motion | todo |
+| M | Security pass (authz tests, headers, upload rules, rate limits), accessibility pass, performance measurement | todo |
+| N | Docs set + deployment guide + launch blockers | todo |
+| O | Final in-depth cross-audit of everything; fix; final report | todo |

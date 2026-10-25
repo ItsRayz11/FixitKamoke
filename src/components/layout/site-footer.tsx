@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getStore } from "@/lib/settings";
 import { site } from "@/config/site";
 
 const links = [
@@ -10,8 +11,9 @@ const links = [
   ["FAQ", "/faq"],
 ] as const;
 
-export function SiteFooter() {
-  const socials = Object.entries(site.social).filter(([, v]) => v) as [string, string][];
+export async function SiteFooter() {
+  const store = await getStore();
+  const socials = (Object.entries({ facebook: store.facebook, instagram: store.instagram, tiktok: store.tiktok, youtube: store.youtube }).filter(([, v]) => v)) as [string, string][];
   return (
     <footer className="mt-16 bg-ink text-slate-300">
       <div className="container-x grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
@@ -38,8 +40,8 @@ export function SiteFooter() {
         </nav>
         <div className="text-sm">
           <p className="font-semibold text-white">Visit</p>
-          <p className="mt-3">{site.address ?? "Shop address to be confirmed."}</p>
-          {site.openingHours && <p className="mt-1">{site.openingHours}</p>}
+          <p className="mt-3">{store.address ?? "Shop address to be confirmed."}</p>
+          {store.openingHours && <p className="mt-1">{store.openingHours}</p>}
           {socials.length > 0 && (
             <ul className="mt-4 flex flex-wrap gap-3">
               {socials.map(([n, u]) => (

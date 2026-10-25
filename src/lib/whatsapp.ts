@@ -1,5 +1,3 @@
-import { site } from "@/config/site";
-
 export type WhatsAppContext =
   | { kind: "general" }
   | { kind: "product"; name: string; url?: string }
@@ -31,7 +29,7 @@ export function whatsappMessage(ctx: WhatsAppContext): string {
 }
 
 /** Returns a click-to-chat link, or null when the owner has not configured a number. Nothing is sent automatically. */
-export function whatsappLink(ctx: WhatsAppContext): string | null {
-  if (!site.whatsappNumber) return null;
-  return `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(whatsappMessage(ctx))}`;
+export function whatsappLink(ctx: WhatsAppContext, number: string | null): string | null {
+  if (!number) return null;
+  return `https://wa.me/${number}?text=${encodeURIComponent(whatsappMessage(ctx))}`;
 }
