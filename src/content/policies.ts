@@ -82,6 +82,7 @@ To make a claim, contact us with your order number or repair reference. Keep you
 - **Repair requests:** your name, contact details, phone model and the problem you describe.
 - **Contact messages:** what you type into the contact form.
 - **Accounts (optional):** your name, email and a password stored in scrambled form. We never store your password in readable form.
+- **Back-in-stock alert (optional):** if you ask to be told when a sold-out item returns, we keep your email address only to send that one message, and delete it within 30 days. It is never used for marketing.
 - **Email updates (optional):** your email address and the time you agreed. You only receive marketing email if you tick the box for it.
 - **Website use:** simple counts of events such as product views and orders, with no name, phone number, IP address or device details attached.
 

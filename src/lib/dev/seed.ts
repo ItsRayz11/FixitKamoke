@@ -47,6 +47,32 @@ export async function seedDemo(db: Db): Promise<{ products: number }> {
         JSON.stringify({ "Demo spec": "Placeholder value" }), devices],
     );
   }
+  // Finish families. Each finish is its own product with its own stock and its own (demo) picture.
+  // [slug, group, label, hex, category, price, sale, stock, required, image, name, description]
+  const families: [string, string, string, string, string, number, number | null, number, boolean, string, string, string][] = [
+    ["demo-stand-titanium", "demo-aluminium-stand", "Titanium Grey", "#a7b0bc", "cases-protection", 1500, null, 6, false, "/demo/stand-titanium.svg", "DEMO Aluminium Phone Stand", "Placeholder demo stand in several finishes."],
+    ["demo-stand-midnight", "demo-aluminium-stand", "Midnight Blue", "#1e2a4a", "cases-protection", 1500, null, 0, false, "/demo/stand-midnight.svg", "DEMO Aluminium Phone Stand", "Placeholder demo stand in several finishes."],
+    ["demo-stand-silver", "demo-aluminium-stand", "Silver", "#d9dee6", "cases-protection", 1400, 1200, 4, false, "/demo/stand-silver.svg", "DEMO Aluminium Phone Stand", "Placeholder demo stand in several finishes."],
+    ["demo-braided-cable-black", "demo-braided-cable", "Black", "#1f2937", "chargers-cables", 900, null, 10, true, "/demo/cable-black.svg", "DEMO Braided Cable 2m", "Placeholder demo cable. The finish must be chosen before adding to cart."],
+    ["demo-braided-cable-white", "demo-braided-cable", "White", "#e8ecf2", "chargers-cables", 900, null, 5, true, "/demo/cable-white.svg", "DEMO Braided Cable 2m", "Placeholder demo cable. The finish must be chosen before adding to cart."],
+    ["demo-braided-cable-blue", "demo-braided-cable", "Blue", "#2563eb", "chargers-cables", 950, null, 2, true, "/demo/cable-blue.svg", "DEMO Braided Cable 2m", "Placeholder demo cable. The finish must be chosen before adding to cart."],
+  ];
+  for (const [slug, group, label, hex, cat, price, sale, stock, required, img, name, desc] of families) {
+    const r = await db.query<{ id: string }>(
+      `insert into products(slug,name,brand,category_id,description,price,sale_price,sku,stock,published,specs,compatible_devices,warranty_info,variant_group,variant_label,variant_hex,variant_required)
+       values ($1,$2,'DEMO',$3,$4,$5,$6,$1,$7,true,$8,$9,null,$10,$11,$12,$13)
+       on conflict (slug) do update set price = excluded.price, sale_price = excluded.sale_price, stock = excluded.stock, published = true returning id`,
+      [slug, name, catId[cat], desc, price, sale, stock, JSON.stringify({ "Demo spec": "Placeholder value" }), ["iPhone 14"], group, label, hex, required],
+    );
+    await db.query("delete from product_images where product_id = $1", [r[0].id]);
+    await db.query("insert into product_images(product_id,url,alt,sort_order) values ($1,$2,$3,0)", [r[0].id, img, `DEMO placeholder picture, ${label}`]);
+    if (slug === "demo-stand-silver") {
+      // Twelve labelled placeholder frames so the 360-degree viewer can be tried. Real frames come from the owner's turntable shoot.
+      for (let k = 1; k <= 12; k++) {
+        await db.query("insert into product_images(product_id,url,alt,sort_order,kind) values ($1,$2,$3,$4,'spin')", [r[0].id, `/demo/spin-${String(k).padStart(2, "0")}.svg`, `DEMO turntable frame ${k} of 12`, k - 1]);
+      }
+    }
+  }
   await db.query("insert into coupons(code,type,value,min_subtotal) values ('DEMO10','percent',10,1000) on conflict (code) do nothing");
-  return { products: items.length };
+  return { products: items.length + families.length };
 }

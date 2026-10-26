@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
-/* Fixit design tokens. Graphite/midnight surfaces, white content, electric-blue accent, restrained cyan. */
+/*
+ * Fixit design tokens. Liquid Glass + Titanium.
+ * Graphite/midnight surfaces, white content, electric-blue accent. Cyan/blue/violet appear only as small holographic accents.
+ * Glass is used for navigation, drawers and the purchase bar (always with an opaque-enough fill that text keeps its contrast).
+ * Titanium is used for hardware-style surfaces and secondary controls. Essential text and buttons never rely on low-contrast neumorphism.
+ */
 :root {
   --color-ink: #0b1220;
   --color-graphite: #111a2e;
@@ -13,19 +18,42 @@
   --color-accent: #1d5bff;
   --color-accent-strong: #1246d6;
   --color-cyan: #22d3ee;
+  --color-violet: #8b5cf6;
   --color-ok: #047857;
   --color-warn: #b45309;
   --color-danger: #b91c1c;
 
+  /* Titanium: cool, slightly warm-grey metals with a bright edge and a darker core. */
+  --ti-light: linear-gradient(145deg, #f3f5f8 0%, #d3d9e1 38%, #eef1f5 55%, #bcc5d1 100%);
+  --ti-dark: linear-gradient(145deg, #2c3546 0%, #161d2b 45%, #263044 70%, #0f1522 100%);
+  --ti-edge: rgb(255 255 255 / 0.75);
+  --ti-edge-dark: rgb(255 255 255 / 0.14);
+  --stage: radial-gradient(120% 90% at 50% 8%, #ffffff 0%, #f1f4f9 55%, #e3e8f0 100%);
+
+  /* Holographic: spectral accents, used on thin edges, chips and one-off light sweeps. */
+  --holo: linear-gradient(115deg, #22d3ee 0%, #3b82f6 45%, #8b5cf6 100%);
+
+  /* Liquid glass */
+  --glass-dark: rgb(11 18 32 / 0.74);
+  --glass-light: rgb(255 255 255 / 0.84);
+  --glass-line: rgb(255 255 255 / 0.16);
+  --glass-blur: blur(16px) saturate(1.5);
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
+  --radius-xl: 26px;
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 4px 14px rgb(15 23 42 / 0.05);
   --shadow-pop: 0 12px 40px rgb(15 23 42 / 0.18);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 10px 30px rgb(15 23 42 / 0.12);
   --container: 1200px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --purchase-bar-h: 72px;
 }
 
 @theme inline {
@@ -40,6 +68,7 @@
   --color-accent: var(--color-accent);
   --color-accent-strong: var(--color-accent-strong);
   --color-cyan: var(--color-cyan);
+  --color-violet: var(--color-violet);
   --color-ok: var(--color-ok);
   --color-warn: var(--color-warn);
   --color-danger: var(--color-danger);
@@ -50,11 +79,15 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 body {
-  background: var(--color-canvas);
+  background:
+    radial-gradient(900px 380px at 50% -80px, rgb(29 91 255 / 0.07), transparent 70%),
+    var(--color-canvas);
   color: var(--color-text);
   font-family: var(--font-sans);
+  overflow-x: clip;
 }
 
 :focus-visible {
@@ -78,6 +111,200 @@ body {
   background-size: 32px 32px;
 }
 
+/* Component classes live in the components layer so Tailwind utilities can still override them (e.g. lg:static). */
+@layer components {
+/* ---------- Liquid glass ---------- */
+.glass-nav {
+  background: var(--glass-dark);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-line);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 8px 24px rgb(11 18 32 / 0.18);
+}
+.glass-panel {
+  background: var(--glass-light);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid rgb(255 255 255 / 0.6);
+  box-shadow: var(--shadow-lift);
+}
+.glass-panel-dark {
+  background: var(--glass-dark);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-line);
+  color: #fff;
+}
+/* Where backdrop blur is unsupported, fall back to a solid fill so contrast never depends on the blur. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-nav, .glass-panel-dark { background: var(--color-ink); }
+  .glass-panel { background: #fff; }
+}
+
+/* ---------- Titanium ---------- */
+.ti-surface {
+  background: var(--ti-light);
+  border: 1px solid rgb(148 163 184 / 0.55);
+  box-shadow: 0 1px 0 var(--ti-edge) inset, 0 1px 2px rgb(15 23 42 / 0.1);
+  color: var(--color-ink);
+}
+.ti-surface-dark {
+  background: var(--ti-dark);
+  border: 1px solid var(--ti-edge-dark);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 12px 28px rgb(2 6 23 / 0.35);
+  color: #fff;
+}
+/* Product stage: soft studio light with a contact shadow, for photographs of real hardware. */
+.stage {
+  position: relative;
+  background: var(--stage);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 0 #fff inset, var(--shadow-card);
+  isolation: isolate;
+}
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: auto 18% 5% 18%;
+  height: 7%;
+  background: radial-gradient(closest-side, rgb(15 23 42 / 0.16), transparent);
+  filter: blur(6px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ---------- Tactile controls ---------- */
+.btn {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding-inline: 18px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast);
+}
+.btn:active:not(:disabled) { transform: translateY(1px) scale(0.975); }
+.btn:disabled { cursor: not-allowed; }
+.btn-primary {
+  color: #fff;
+  background: linear-gradient(180deg, #3a73ff 0%, #1d5bff 52%, #1246d6 100%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.38) inset, 0 -1px 0 rgb(0 0 0 / 0.18) inset, 0 1px 2px rgb(18 70 214 / 0.5), 0 8px 18px rgb(29 91 255 / 0.22);
+}
+.btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #4a7fff 0%, #2a66ff 52%, #1650e6 100%); }
+.btn-primary:active:not(:disabled) { box-shadow: 0 2px 5px rgb(0 0 0 / 0.28) inset, 0 1px 0 rgb(255 255 255 / 0.1); }
+.btn-primary:disabled { background: #cbd2dd; box-shadow: none; color: #475569; }
+.btn-ti {
+  color: var(--color-ink);
+  background: var(--ti-light);
+  border: 1px solid rgb(148 163 184 / 0.7);
+  box-shadow: 0 1px 0 var(--ti-edge) inset, 0 1px 2px rgb(15 23 42 / 0.12);
+}
+.btn-ti:active:not(:disabled) { box-shadow: 0 2px 4px rgb(15 23 42 / 0.22) inset; }
+.btn-glass {
+  color: #fff;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.btn-glass:hover { background: rgb(255 255 255 / 0.18); }
+/* Confirmed state of the purchase button: a short colour flip, no layout change. */
+.btn-done { background: linear-gradient(180deg, #10b981 0%, #047857 100%) !important; color: #fff !important; }
+
+/* Finish / variant swatch: a real colour chip, selected with a holographic ring. */
+.swatch {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 5px 14px 5px 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box, linear-gradient(var(--color-line), var(--color-line)) border-box;
+  border: 2px solid transparent;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-base);
+  touch-action: manipulation;
+}
+.swatch:active { transform: scale(0.96); }
+.swatch[aria-checked="true"] {
+  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--holo) border-box;
+  box-shadow: 0 6px 16px rgb(29 91 255 / 0.18);
+}
+.swatch[aria-disabled="true"] { opacity: 0.6; }
+.swatch-dot {
+  width: 30px; height: 30px; border-radius: 999px; flex: none;
+  border: 1px solid rgb(15 23 42 / 0.25);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.55) inset, 0 -3px 5px rgb(0 0 0 / 0.18) inset;
+}
+
+/* Holographic thin edge for featured media. */
+.holo-edge {
+  border: 1.5px solid transparent;
+  background: linear-gradient(var(--color-surface), var(--color-surface)) padding-box, var(--holo) border-box;
+}
+.holo-text { background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* One-off light sweep across a featured image. Triggered by adding .sweep; it plays once. */
+.sweep { position: relative; overflow: hidden; }
+.sweep::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto -20% -60%;
+  width: 40%;
+  transform: skewX(-18deg) translateX(0);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), rgb(139 92 246 / 0.18), transparent);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sweep.sweep-play::before { animation: sweep 1100ms var(--ease-out) 1; }
+}
+@keyframes sweep {
+  0% { transform: skewX(-18deg) translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: skewX(-18deg) translateX(520%); opacity: 0; }
+}
+
+/* Titanium Spotlight: pointer-driven tilt (set by JS on fine-pointer devices only) with a soft glare. */
+.spotlight { position: relative; perspective: 900px; }
+.spotlight-inner {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 160ms var(--ease-out);
+  will-change: transform;
+}
+.spotlight-glare {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 200ms;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgb(255 255 255 / 0.55), transparent 45%);
+  mix-blend-mode: soft-light;
+}
+.spotlight[data-active="true"] .spotlight-glare { opacity: 1; }
+
+/* Loading skeleton. */
+.skeleton { background: linear-gradient(100deg, #e5e9f1 30%, #f3f5f9 50%, #e5e9f1 70%); background-size: 200% 100%; border-radius: var(--radius-sm); }
+@media (prefers-reduced-motion: no-preference) { .skeleton { animation: shimmer 1.4s linear infinite; } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Fixed bottom purchase bar. Honours the device safe area; pages that show it reserve matching space. */
+.purchase-bar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 30;
+  padding: 10px 16px calc(10px + var(--safe-bottom));
+}
+.has-purchase-bar { padding-bottom: calc(var(--purchase-bar-h) + var(--safe-bottom) + 12px); }
+
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -87,6 +314,7 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .spotlight-inner { transform: none !important; }
 }
 
 @keyframes toast-in {
@@ -94,13 +322,36 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Overlay + panel motion for dialogs and drawers (transform/opacity only). */
+/* ---------- Liquid Glass Reveal: overlays, drawers and dialogs (transform + opacity only) ---------- */
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes sheet-up { from { transform: translateY(28px) scale(0.985); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes sheet-down { from { transform: translateY(0); opacity: 1; } to { transform: translateY(24px); opacity: 0; } }
+@keyframes drawer-left-in { from { transform: translateX(-24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes drawer-left-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-20px); opacity: 0; } }
+@keyframes drop-in { from { transform: translateY(-14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes drop-out { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-10px); opacity: 0; } }
 @keyframes dialog-pop { from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.sheet-overlay[data-state="open"] { animation: overlay-in 160ms var(--ease-out); }
-.sheet-content[data-state="open"] { animation: sheet-up 220ms var(--ease-out); }
-.dialog-content[data-state="open"] { animation: dialog-pop 180ms var(--ease-out); }
+@keyframes dialog-out { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -49%) scale(0.98); } }
+@keyframes cart-bump { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+@keyframes check-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes swatch-fade { from { opacity: 0.35; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-overlay[data-state="open"] { animation: overlay-in 180ms var(--ease-out); }
+  .sheet-overlay[data-state="closed"] { animation: overlay-out 140ms ease-in forwards; }
+  .sheet-content[data-state="open"] { animation: sheet-up 260ms var(--ease-out); }
+  .sheet-content[data-state="closed"] { animation: sheet-down 160ms ease-in forwards; }
+  .drawer-left[data-state="open"] { animation: drawer-left-in 240ms var(--ease-out); }
+  .drawer-left[data-state="closed"] { animation: drawer-left-out 150ms ease-in forwards; }
+  .drop-panel[data-state="open"] { animation: drop-in 220ms var(--ease-out); }
+  .drop-panel[data-state="closed"] { animation: drop-out 140ms ease-in forwards; }
+  .dialog-content[data-state="open"] { animation: dialog-pop 200ms var(--ease-out); }
+  .dialog-content[data-state="closed"] { animation: dialog-out 140ms ease-in forwards; }
+  .bump { animation: cart-bump 380ms var(--ease-spring); }
+  .check-pop { animation: check-pop 320ms var(--ease-spring); }
+  .swap-fade { animation: swatch-fade 220ms var(--ease-out); }
+}
 @media (min-width: 768px) {
   .sheet-content { inset-inline: auto; right: 0; top: 0; bottom: 0; left: auto; max-height: none; width: 24rem; border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
 }
@@ -116,4 +367,20 @@ body {
 
 @media (prefers-reduced-motion: no-preference) {
   .gallery-fade { animation: overlay-in 180ms var(--ease-out); }
+}
+
+/* Cart confirmation sits at the bottom edge, above the safe area, and lifts above the product page's fixed purchase bar. */
+.cart-confirm { bottom: calc(12px + var(--safe-bottom)); }
+@media (max-width: 1023.98px) {
+  body[data-purchase-bar="on"] .cart-confirm { bottom: calc(var(--purchase-bar-h) + var(--safe-bottom) + 12px); }
+}
+
+/* Admin tables become stacked cards on phones. Unlayered on purpose: it must beat the px-3/py-2 utilities on each cell. */
+@media (max-width: 639.98px) {
+  table.rtable, table.rtable tbody, table.rtable tr, table.rtable td { display: block; min-width: 0 !important; width: 100%; }
+  table.rtable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  table.rtable tr { padding: 0.75rem 1rem; }
+  table.rtable td { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.2rem 0; text-align: right; overflow-wrap: anywhere; }
+  table.rtable td[data-label]::before { content: attr(data-label); flex: none; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); text-align: left; }
+  table.rtable td > * { min-width: 0; }
 }

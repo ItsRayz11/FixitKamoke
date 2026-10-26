@@ -9,9 +9,9 @@ export async function POST(req: NextRequest) {
   if (req.headers.get("dnt") === "1" || req.headers.get("sec-gpc") === "1") return new NextResponse(null, { status: 204 });
   const ip = clientIp((n) => req.headers.get(n));
   if (!rateLimit(`events:${ip}`, 120, 10 * 60_000)) return new NextResponse(null, { status: 429 });
-  let body: { name?: unknown; path?: unknown };
+  let body: { name?: unknown; path?: unknown; device?: unknown };
   try { body = await req.json(); } catch { return new NextResponse(null, { status: 400 }); }
   if (typeof body.name !== "string" || typeof body.path !== "string" || !(CLIENT_EVENTS as readonly string[]).includes(body.name)) return new NextResponse(null, { status: 400 });
-  await recordEvent(await getDb(), body.name as ClientEvent, body.path);
+  await recordEvent(await getDb(), body.name as ClientEvent, body.path, typeof body.device === "string" ? body.device : null);
   return new NextResponse(null, { status: 204 });
 }

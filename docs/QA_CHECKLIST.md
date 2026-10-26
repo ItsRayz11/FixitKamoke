@@ -51,5 +51,15 @@ Automated checks run with `npm test` (Vitest) and `npx playwright test` (browser
 ## Link integrity (dev suite)
 - [x] Crawler follows every storefront link (36 pages) and every admin link as owner (29 pages): no broken page and no console error
 
+## V2 mobile-first checks (all automated unless noted)
+- [x] No horizontal overflow or elements wider than the screen at 320, 360, 393, 414 px on home, shop, category, two product pages, cart, checkout, compare, repairs, track (desktop and Pixel 7 projects)
+- [x] Finish choice swaps real photo/price/stock/URL; arrow-key operable; sold-out finish labelled and unbuyable; required finish guided; order line records the finish
+- [x] Purchase bar: phone only, appears when the main button is off screen, hides while a field is focused
+- [x] Cart confirmation: continue shopping and open cart; reduced-motion still works; stage tilt off under reduced motion
+- [x] Touch targets at least 44px for the main product controls; axe (WCAG 2.2 AA) on home, shop, product with finishes, compare
+- [x] Funnel events stored without personal data; admin Funnel shows "not enough data" for small samples
+- [x] Production build suite (10 tests) and secret scan pass after V2. Lab numbers after V2 (slow 4G, 4x CPU): LCP 1.07-1.24 s, CLS 0 (0.038 cart), JS about 190 KB. Re-measure on the live site.
+- [ ] Real iPhone/Android pass (dynamic toolbar, notch, keyboard over checkout form, thumb reach), low-end phone pass, screen-reader pass: owed to a person with devices
+
 ## Before each release
 `npm run lint && npx tsc --noEmit && npm test && npx playwright test && npm run build`

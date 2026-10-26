@@ -23,6 +23,8 @@ export const storeSettingsSchema = z.object({
   bankName: z.string().trim().max(100).nullable(),
   bankAccountTitle: z.string().trim().max(100).nullable(),
   bankAccountNumber: z.string().trim().max(60).nullable(),
+  /** Free text shown with the bank details: other ways to send money by hand, e.g. an Easypaisa or JazzCash wallet number and its title. */
+  paymentInstructions: z.string().trim().max(600).nullable(),
   heroTitle: z.string().trim().max(120).nullable(),
   heroSubtitle: z.string().trim().max(300).nullable(),
   announcement: z.string().trim().max(160).nullable(),
@@ -56,6 +58,7 @@ export const defaultSettings = (): StoreSettings => ({
   bankName: null,
   bankAccountTitle: null,
   bankAccountNumber: null,
+  paymentInstructions: null,
   heroTitle: null,
   heroSubtitle: null,
   announcement: null,

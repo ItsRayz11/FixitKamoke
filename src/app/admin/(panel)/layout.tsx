@@ -1,50 +1,48 @@
-import Link from "next/link";
 import { requireAdmin, hasRole } from "@/lib/auth/session";
+import { getAttentionCounts } from "@/lib/admin/stats";
+import { AdminShell, type NavItem } from "@/components/admin/admin-shell";
+import { RowLabels } from "@/components/admin/row-labels";
 import { logoutAction } from "../actions";
 
-const NAV: { href: string; label: string; min: "staff" | "manager" | "owner" }[] = [
-  { href: "/admin", label: "Dashboard", min: "staff" },
-  { href: "/admin/orders", label: "Orders", min: "staff" },
-  { href: "/admin/repairs", label: "Repairs", min: "staff" },
-  { href: "/admin/messages", label: "Messages", min: "staff" },
-  { href: "/admin/products", label: "Products", min: "manager" },
-  { href: "/admin/categories", label: "Categories", min: "manager" },
-  { href: "/admin/inventory", label: "Inventory", min: "manager" },
-  { href: "/admin/coupons", label: "Coupons", min: "manager" },
-  { href: "/admin/blog", label: "Blog", min: "manager" },
-  { href: "/admin/reviews", label: "Reviews", min: "manager" },
-  { href: "/admin/customers", label: "Customers", min: "manager" },
-  { href: "/admin/subscribers", label: "Email list", min: "manager" },
-  { href: "/admin/shipping", label: "Shipping", min: "manager" },
-  { href: "/admin/settings", label: "Store settings", min: "owner" },
-  { href: "/admin/payments", label: "Payments", min: "owner" },
-  { href: "/admin/email", label: "Email status", min: "owner" },
-  { href: "/admin/users", label: "Staff", min: "owner" },
-  { href: "/admin/audit", label: "Audit log", min: "owner" },
+const NAV: (NavItem & { min: "staff" | "manager" | "owner" })[] = [
+  { href: "/admin", label: "Dashboard", group: "Overview", min: "staff" },
+  { href: "/admin/analytics", label: "Funnel", group: "Overview", min: "manager" },
+  { href: "/admin/preview", label: "Phone preview", group: "Overview", min: "staff" },
+  { href: "/admin/orders", label: "Orders", group: "Sales", min: "staff" },
+  { href: "/admin/repairs", label: "Repairs", group: "Sales", min: "staff" },
+  { href: "/admin/messages", label: "Messages", group: "Sales", min: "staff" },
+  { href: "/admin/customers", label: "Customers", group: "Sales", min: "manager" },
+  { href: "/admin/products", label: "Products", group: "Catalogue", min: "manager" },
+  { href: "/admin/categories", label: "Categories", group: "Catalogue", min: "manager" },
+  { href: "/admin/inventory", label: "Inventory", group: "Catalogue", min: "manager" },
+  { href: "/admin/coupons", label: "Coupons", group: "Catalogue", min: "manager" },
+  { href: "/admin/reviews", label: "Reviews", group: "Catalogue", min: "manager" },
+  { href: "/admin/shipping", label: "Shipping", group: "Catalogue", min: "manager" },
+  { href: "/admin/blog", label: "Blog", group: "Content", min: "manager" },
+  { href: "/admin/subscribers", label: "Email list", group: "Content", min: "manager" },
+  { href: "/admin/security", label: "Account security", group: "Account", min: "staff" },
+  { href: "/admin/settings", label: "Store settings", group: "Settings", min: "owner" },
+  { href: "/admin/payments", label: "Payments", group: "Settings", min: "owner" },
+  { href: "/admin/email", label: "Email status", group: "Settings", min: "owner" },
+  { href: "/admin/users", label: "Staff", group: "Settings", min: "owner" },
+  { href: "/admin/audit", label: "Audit log", group: "Settings", min: "owner" },
 ];
 
 export const dynamic = "force-dynamic";
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin("staff");
+  const counts = await getAttentionCounts();
+  const badge: Record<string, number> = { "/admin/orders": counts.orders, "/admin/repairs": counts.repairs, "/admin/messages": counts.messages };
+  const items: NavItem[] = NAV.filter((n) => hasRole(admin, n.min)).map((n) => ({ href: n.href, label: n.label, group: n.group, badge: badge[n.href] }));
   return (
-    <div className="min-h-screen bg-canvas">
-      <div className="border-b border-white/10 bg-ink text-white">
-        <div className="container-x flex h-14 items-center justify-between gap-3">
-          <Link href="/admin" className="font-extrabold">Fix<span className="text-cyan">it</span> <span className="text-xs font-medium text-slate-300">admin</span></Link>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-slate-300 sm:inline">{admin.displayName ?? admin.email} · {admin.role}</span>
-            <Link href="/" className="hover:text-cyan">View store</Link>
-            <form action={logoutAction}><button className="min-h-11 font-semibold hover:text-cyan">Sign out</button></form>
-          </div>
-        </div>
-        <nav aria-label="Admin" className="container-x flex gap-4 overflow-x-auto pb-2 text-sm">
-          {NAV.filter((n) => hasRole(admin, n.min)).map((n) => (
-            <Link key={n.href} href={n.href} className="whitespace-nowrap py-1 text-slate-200 hover:text-cyan">{n.label}</Link>
-          ))}
-        </nav>
-      </div>
-      <div className="container-x py-6">{children}</div>
-    </div>
+    <AdminShell
+      items={items}
+      userLabel={`${admin.displayName ?? admin.email} · ${admin.role}`}
+      signOut={<form action={logoutAction}><button className="text-sm">Sign out</button></form>}
+    >
+      <RowLabels />
+      {children}
+    </AdminShell>
   );
 }

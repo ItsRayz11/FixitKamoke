@@ -1,3 +1,4 @@
+import { paymentLabel } from "@/lib/domain/payment-label";
 import { formatPKR } from "@/lib/domain/money";
 import { STATUS_LABEL, type OrderView } from "@/lib/orders/lookup";
 
@@ -19,7 +20,7 @@ export function OrderDetails({ order }: { order: OrderView }) {
         <div className="flex justify-between"><dt>Delivery</dt><dd>{order.shippingStatus === "needs_confirmation" ? "To be confirmed by us" : order.shippingFee === 0 ? "Free" : formatPKR(order.shippingFee)}</dd></div>
         <div className="flex justify-between text-base font-bold"><dt>Total</dt><dd data-testid="order-total">{formatPKR(order.total)}</dd></div>
       </dl>
-      <p className="mt-3 text-sm text-muted">Payment: {order.paymentMethod === "cod" ? "Cash on delivery" : "Bank transfer"} · Deliver to: {order.city}</p>
+      <p className="mt-3 text-sm text-muted">Payment: {paymentLabel(order.paymentMethod, order.paymentProvider)}{order.paymentMethod === "online" ? (order.paymentStatus === "paid" ? ", paid" : ", awaiting payment") : ""} · Deliver to: {order.city}</p>
       <ol className="mt-4 space-y-1 text-sm">
         {order.history.map((h, i) => (
           <li key={i}><span className="font-semibold">{STATUS_LABEL[h.status] ?? h.status}</span> <span className="text-muted">· {new Date(h.at).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}</span></li>

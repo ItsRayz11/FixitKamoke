@@ -23,7 +23,7 @@ export async function saveStoreAction(form: FormData) {
     openingHours: blank(form, "openingHours"), contactEmail: blank(form, "contactEmail"), facebook: blank(form, "facebook"), instagram: blank(form, "instagram"),
     tiktok: blank(form, "tiktok"), youtube: blank(form, "youtube"), showFounder: form.get("showFounder") === "on", founderMessage: blank(form, "founderMessage"),
     founderPhotoUrl: blank(form, "founderPhotoUrl"), bankName: blank(form, "bankName"), bankAccountTitle: blank(form, "bankAccountTitle"),
-    bankAccountNumber: blank(form, "bankAccountNumber"), heroTitle: blank(form, "heroTitle"), heroSubtitle: blank(form, "heroSubtitle"),
+    bankAccountNumber: blank(form, "bankAccountNumber"), paymentInstructions: blank(form, "paymentInstructions"), heroTitle: blank(form, "heroTitle"), heroSubtitle: blank(form, "heroSubtitle"),
     announcement: blank(form, "announcement"), policiesApproved: form.get("policiesApproved") === "on",
     notifyStaffByEmail: form.get("notifyStaffByEmail") === "on", codEnabled: form.get("codEnabled") === "on", bankTransferEnabled: form.get("bankTransferEnabled") === "on",
     shippingTerms: blank(form, "shippingTerms"), returnsTerms: blank(form, "returnsTerms"), warrantyTerms: blank(form, "warrantyTerms"),

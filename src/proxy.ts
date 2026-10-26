@@ -20,7 +20,7 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const open = pathname === "/admin/login" || pathname === "/admin/setup";
+  const open = pathname === "/admin/login" || pathname.startsWith("/admin/login/") || pathname === "/admin/setup";
   const res = !open && !req.cookies.get("fixit_admin")
     ? NextResponse.redirect(new URL("/admin/login", req.url))
     : NextResponse.next();

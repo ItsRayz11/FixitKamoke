@@ -18,19 +18,28 @@ Nothing below can be invented by the developer. Until done, the site shows "to b
 | 10 | Review and edit the four starter guides before publishing | Admin → Blog | drafts |
 | 11 | Domain: fixit.com / fixitkamoki.com availability was **not verified**; buy and point DNS | registrar + host | unverified |
 
+| 3b | **Real photographs per finish and angle** (consistent angle, light, background; see PRODUCT_PHOTOGRAPHY_GUIDE.md). The demo pictures are labelled placeholders | Admin → Products (image links) | missing |
+| 3c | For products sold in colours: one product per finish with the same name + finish group, finish name and swatch colour | Admin → Products → Finish / colour | not entered |
+
 ## Accounts and money decisions
 | # | Item | Notes |
 |---|---|---|
 | 12 | **Paid** hosting for the app | Vercel Hobby is non-commercial only, so the live shop needs Pro or another paid host (see DECISION_LOG §5). |
 | 13 | **Paid, backed-up** Postgres | Supabase Free pauses after a week and has no backups; use Pro/Neon paid. |
 | 14 | Resend account + verified sending domain | Free: 100/day, 3,000/month. Set `RESEND_API_KEY`, `EMAIL_FROM`. |
-| 15 | Online payment gateway (optional) | Needs merchant account + sandbox from JazzCash / Easypaisa / Safepay and a developer to build and test the integration. Not built. |
+| 15 | Online payment gateway (optional) | Safepay and JazzCash adapters are built but **not yet run against a live merchant account**: you need the merchant account and sandbox credentials, then the staff test in Admin -> Payments (GO_LIVE_GUIDE section 4). Easypaisa is not built (needs its merchant guide). |
 | 16 | Courier arrangements | No courier API is integrated; delivery fees are configured manually. |
+| 17 | `TWO_FACTOR_KEY` server setting (32+ random characters) | Switches on two-step sign-in for staff (Admin → Account security). Keep it safe: if it changes, enrolled staff must set up again. Then **owner and every staff member should enrol**. |
+| 18 | Cloudinary account + three `CLOUDINARY_*` settings | Enables photo and turntable upload in admin. Without it you can still paste https links. |
+| 19 | Real turntable photos (24 to 36 frames per product that should have a 360° view) | Optional. See GO_LIVE_GUIDE section 5. |
+| 20 | Real-phone pass on iPhone Safari and Android Chrome | Checklist in GO_LIVE_GUIDE section 6. |
 
 ## Not built (known gaps)
-- Direct image upload (URLs only); needs a storage bucket + validation.
-- Marketing email campaigns and back-in-stock alerts (the consented list and CSV export exist).
-- Customer email verification; two-factor authentication for staff.
+- Easypaisa gateway adapter (needs Easypaisa's Merchant Integration Guide). Refunds are made in each provider's own dashboard, then marked on the order.
+- A/B testing: not run; traffic would be too low to read. Use Admin → Funnel as the baseline.
+- Manual checks still owed: real phones (iOS Safari, Android Chrome) for dynamic toolbars, notches, keyboards and touch feel; a low-end-phone performance pass; a screen-reader pass; a design review of the finished look with real photos.
+- Marketing email campaigns (the consented list and CSV export exist). Back-in-stock alerts are built (one transactional email per request).
+- Customer email verification. (Staff two-step sign-in is built but optional and off until `TWO_FACTOR_KEY` is set and people enrol; it is not enforced.)
 - Shared (multi-instance) rate limiting.
 - Urdu / Roman Urdu (structure allows it later).
 - Courier tracking integration, loyalty points, referral rewards.

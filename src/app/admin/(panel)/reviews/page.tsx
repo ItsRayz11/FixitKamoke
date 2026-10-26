@@ -1,3 +1,4 @@
+import { displayName } from "@/lib/domain/display";
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { Banner, fmtDate } from "@/components/admin/ui";
@@ -8,8 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function ReviewsAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   await requireAdmin("manager");
   const sp = await searchParams;
-  const rows = await (await getDb()).query<{ id: string; author_name: string; rating: number; body: string; status: string; created_at: string; product: string }>(
-    "select r.id, r.author_name, r.rating, r.body, r.status, r.created_at, p.name as product from reviews r join products p on p.id = r.product_id order by (r.status = 'pending') desc, r.created_at desc limit 200");
+  const rows = await (await getDb()).query<{ id: string; author_name: string; rating: number; body: string; status: string; created_at: string; product: string; variant_label: string | null }>(
+    "select r.id, r.author_name, r.rating, r.body, r.status, r.created_at, p.name as product, p.variant_label from reviews r join products p on p.id = r.product_id order by (r.status = 'pending') desc, r.created_at desc limit 200");
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-extrabold">Review moderation</h1>
@@ -19,7 +20,7 @@ export default async function ReviewsAdmin({ searchParams }: { searchParams: Pro
       <ul className="space-y-3">
         {rows.map((r) => (
           <li key={r.id} className="rounded-[var(--radius-md)] border border-line bg-surface p-4">
-            <p className="text-sm"><strong>{r.author_name}</strong> on <em>{r.product}</em> · {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)} · {fmtDate(r.created_at)} · <span className="font-semibold">{r.status}</span></p>
+            <p className="text-sm"><strong>{r.author_name}</strong> on <em>{displayName(r.product, r.variant_label)}</em> · {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)} · {fmtDate(r.created_at)} · <span className="font-semibold">{r.status}</span></p>
             <p className="mt-2 whitespace-pre-wrap text-sm">{r.body}</p>
             {r.status === "pending" && (
               <div className="mt-3 flex gap-3">

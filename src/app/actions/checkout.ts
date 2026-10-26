@@ -5,10 +5,11 @@ import { clientIp } from "@/lib/client-ip";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getProductsByIds, effectivePrice } from "@/lib/catalog";
+import { displayName } from "@/lib/domain/display";
 import { checkoutSchema, CheckoutError, createOrder, getShippingConfig } from "@/lib/orders/create-order";
 import { quoteShipping } from "@/lib/domain/shipping";
 import { rateLimit } from "@/lib/rate-limit";
-import { getCustomer } from "@/lib/auth/session";
+import { getAdmin, getCustomer } from "@/lib/auth/session";
 import { listAddresses } from "@/lib/customers/customers";
 import { getPaymentOptions, type PaymentOptions } from "@/lib/payments";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
@@ -36,7 +37,7 @@ export async function getCartView(input: unknown): Promise<CartView> {
     if (!p) { missing.push(l.productId); continue; }
     const unitPrice = effectivePrice(p);
     const problem = p.stock <= 0 ? "Out of stock" : l.quantity > p.stock ? `Only ${p.stock} available` : null;
-    lines.push({ productId: p.id, slug: p.slug, name: p.name, image: p.image?.url ?? null, unitPrice, quantity: l.quantity, stock: p.stock, lineTotal: unitPrice * l.quantity, problem });
+    lines.push({ productId: p.id, slug: p.slug, name: displayName(p.name, p.variantLabel), image: p.image?.url ?? null, unitPrice, quantity: l.quantity, stock: p.stock, lineTotal: unitPrice * l.quantity, problem });
   }
   return { lines, subtotal: lines.reduce((s, l) => s + l.lineTotal, 0), missing };
 }
@@ -68,7 +69,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   try {
     const parsed = checkoutSchema.parse(input);
     const customer = await getCustomer(); // from the session cookie, never from the form
-    const order = await createOrder(await getDb(), parsed, { customerId: customer?.id });
+    const order = await createOrder(await getDb(), parsed, { customerId: customer?.id, staff: (await getAdmin()) !== null });
     if (!order.trackingToken) {
       // Idempotent retry: order exists but the plaintext token is only ever shown once.
       return { ok: false, code: "duplicate", message: `Your order ${order.orderNumber} was already received. Please check your confirmation or contact us.` };
@@ -98,5 +99,5 @@ export async function getCheckoutPrefill(): Promise<CheckoutPrefill | null> {
 }
 
 export async function getPaymentChoices(): Promise<PaymentOptions> {
-  return getPaymentOptions(await getDb());
+  return getPaymentOptions(await getDb(), { staff: (await getAdmin()) !== null });
 }

@@ -20,9 +20,9 @@ export default async function RepairsAdmin({ searchParams }: { searchParams: Pro
       <h1 className="text-2xl font-extrabold">Repair requests</h1>
       <form className="mt-4 flex flex-wrap gap-3">
         <label className="sr-only" htmlFor="q">Search repairs</label>
-        <input id="q" name="q" defaultValue={q} placeholder="Reference, name, phone or model" className="h-11 w-64 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm" />
+        <input id="q" name="q" defaultValue={q} placeholder="Reference, name, phone or model" className="h-11 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm sm:w-64" />
         <label className="sr-only" htmlFor="status">Status</label>
-        <select id="status" name="status" defaultValue={status} className="h-11 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm">
+        <select id="status" name="status" defaultValue={status} className="h-11 min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm sm:flex-none">
           <option value="">All statuses</option>
           {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_LABEL[s]}</option>)}
         </select>

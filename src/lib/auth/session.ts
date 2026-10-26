@@ -31,6 +31,13 @@ export async function startAdminSession(userId: string) {
   await setCookie(ADMIN_COOKIE, token, ADMIN_TTL_MS, "/");
 }
 
+const CHALLENGE_COOKIE = "fixit_admin_2fa";
+const CHALLENGE_TTL_MS = 5 * 60_000;
+/** The short-lived cookie that links a correct password to the second step. It grants no access by itself. */
+export async function setChallengeCookie(token: string) { await setCookie(CHALLENGE_COOKIE, token, CHALLENGE_TTL_MS, "/admin"); }
+export async function getChallengeCookie() { return (await cookies()).get(CHALLENGE_COOKIE)?.value ?? null; }
+export async function clearChallengeCookie() { (await cookies()).set(CHALLENGE_COOKIE, "", { path: "/admin", maxAge: 0 }); }
+
 export async function endAdminSession() {
   const jar = await cookies();
   const t = jar.get(ADMIN_COOKIE)?.value;

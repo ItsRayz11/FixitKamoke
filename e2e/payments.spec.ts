@@ -41,13 +41,14 @@ test.afterAll(async ({ browser }) => {
   await setPayments(page, { cod: true, bank: true });
 });
 
-test("the payments page is honest: offline methods work, no gateway is connected", async ({ page }) => {
+test("the payments page is honest: offline methods work, gateways are off until proven", async ({ page }) => {
   await ensureOwnerLogin(page);
   await page.goto("/admin/payments");
   await expect(page.getByText("Cash on delivery:")).toBeVisible();
-  for (const g of ["JazzCash", "Easypaisa", "Safepay (cards)"]) await expect(page.getByText(g).first()).toBeVisible();
-  await expect(page.getByText("not connected", { exact: true })).toHaveCount(3);
-  await expect(page.getByText(/Not connected\. The integration, signed callback verification/).first()).toBeVisible();
+  for (const g of ["JazzCash", "Easypaisa", "Safepay"]) await expect(page.getByText(g).first()).toBeVisible();
+  await expect(page.getByText("Not built", { exact: true })).toHaveCount(1); // Easypaisa: its notification format is only given to merchants
+  await expect(page.getByText(/not detected automatically/)).toBeVisible(); // honest about manual transfers
+  await expect(page.getByText(/Automatic: Safepay sends our server a signed webhook/)).toBeVisible();
 });
 
 test("customers are never offered a payment gateway at checkout", async ({ page }) => {

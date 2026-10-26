@@ -3,14 +3,15 @@ import { getDb } from "@/lib/db";
 import { KeepForm } from "@/components/admin/keep-form";
 import { Banner, Field, fmtDate, inputCls, Submit, td, th } from "@/components/admin/ui";
 import { createStaffAction, setStaffActiveAction } from "../settings-actions";
+import { resetStaffTwoFactorAction } from "../security/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function UsersAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const me = await requireAdmin("owner");
   const sp = await searchParams;
-  const rows = await (await getDb()).query<{ id: string; email: string; role: string; display_name: string | null; active: boolean; created_at: string }>(
-    "select id, email, role, display_name, active, created_at from admin_users order by created_at");
+  const rows = await (await getDb()).query<{ id: string; email: string; role: string; display_name: string | null; active: boolean; created_at: string; two_factor: boolean }>(
+    "select id, email, role, display_name, active, created_at, (totp_enabled_at is not null) as two_factor from admin_users order by created_at");
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div>
@@ -19,12 +20,16 @@ export default async function UsersAdmin({ searchParams }: { searchParams: Promi
         <div className="mt-4"><Banner ok={sp.ok} error={sp.error} /></div>
         <div className="overflow-x-auto rounded-[var(--radius-md)] border border-line bg-surface">
           <table className="w-full">
-            <thead className="border-b border-line"><tr><th className={th}>Name</th><th className={th}>Email</th><th className={th}>Role</th><th className={th}>Created</th><th className={th}><span className="sr-only">Actions</span></th></tr></thead>
+            <thead className="border-b border-line"><tr><th className={th}>Name</th><th className={th}>Email</th><th className={th}>Role</th><th className={th}>Two-step</th><th className={th}>Created</th><th className={th}><span className="sr-only">Actions</span></th></tr></thead>
             <tbody className="divide-y divide-line">
               {rows.map((u) => (
                 <tr key={u.id}>
-                  <td className={td}>{u.display_name ?? "—"}</td><td className={td}>{u.email}</td><td className={td}>{u.role}{!u.active && " (disabled)"}</td><td className={td}>{fmtDate(u.created_at)}</td>
+                  <td className={td}>{u.display_name ?? "—"}</td><td className={td}>{u.email}</td><td className={td}>{u.role}{!u.active && " (disabled)"}</td><td className={td}>{u.two_factor ? "On" : "Off"}</td><td className={td}>{fmtDate(u.created_at)}</td>
                   <td className={td}>
+                    {u.two_factor && u.id !== me.id && (
+                      <form action={resetStaffTwoFactorAction}><input type="hidden" name="id" value={u.id} />
+                        <button className="min-h-11 text-sm font-semibold underline" aria-label={`Reset two-step sign-in for ${u.email}`}>Reset two-step</button></form>
+                    )}
                     {u.role !== "owner" && u.id !== me.id && (
                       <form action={setStaffActiveAction}><input type="hidden" name="id" value={u.id} /><input type="hidden" name="active" value={u.active ? "0" : "1"} />
                         <button className="min-h-11 text-sm font-semibold underline">{u.active ? "Disable" : "Enable"}</button></form>

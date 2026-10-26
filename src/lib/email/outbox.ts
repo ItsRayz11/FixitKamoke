@@ -1,6 +1,9 @@
 import type { Db } from "@/lib/db";
 import { REPAIR_LABEL, type RepairStatus } from "@/lib/domain/repair-state";
-import { renderOrderEmail, renderPasswordReset, renderRepairEmail, renderStaffAlert, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
+import { releaseRestockedAlerts } from "@/lib/stock-alerts";
+import { expireUnpaidOnlineOrders } from "@/lib/payments/expire";
+import { displayName } from "@/lib/domain/display";
+import { renderBackInStock, renderOrderEmail, renderPasswordReset, renderRepairEmail, renderStaffAlert, type EmailContext, type OrderEmailData, type RepairEmailData, type Rendered } from "./templates";
 
 export interface EmailConfig { apiKey: string; from: string }
 export type SendFn = (msg: { to: string; subject: string; html: string; text: string; idempotencyKey: string }) => Promise<void>;
@@ -36,14 +39,18 @@ interface OutboxRow { id: string; kind: string; recipient: string; payload: Reco
 
 async function render(db: Db, row: OutboxRow, ctx: EmailContext): Promise<Rendered | null> {
   if (row.kind === "staff_alert") return renderStaffAlert(row.payload.kind, row.payload.ref, row.payload.summary ?? "", ctx);
+  if (row.kind === "back_in_stock") {
+    const pr = (await db.query<{ name: string; slug: string; stock: number; variant_label: string | null }>("select name, slug, stock, variant_label from products where id = $1", [row.payload.productId]))[0];
+    return pr ? renderBackInStock({ name: displayName(pr.name, pr.variant_label), slug: pr.slug, stock: pr.stock }, ctx) : null;
+  }
   if (row.kind === "password_reset") return row.payload.resetToken ? renderPasswordReset(row.payload.resetToken, ctx) : null;
   if (row.kind.startsWith("order_")) {
-    const o = (await db.query<{ id: string; order_number: string; customer_name: string; status: string; payment_method: string; subtotal: number; discount: number; shipping_fee: number; shipping_status: string; total: number }>(
-      "select id, order_number, customer_name, status, payment_method, subtotal, discount, shipping_fee, shipping_status, total from orders where order_number = $1", [row.payload.orderNumber]))[0];
+    const o = (await db.query<{ id: string; order_number: string; customer_name: string; status: string; payment_method: string; payment_provider: string | null; subtotal: number; discount: number; shipping_fee: number; shipping_status: string; total: number }>(
+      "select id, order_number, customer_name, status, payment_method, payment_provider, subtotal, discount, shipping_fee, shipping_status, total from orders where order_number = $1", [row.payload.orderNumber]))[0];
     if (!o) return null;
     const items = await db.query<{ product_name: string; quantity: number; line_total: number }>("select product_name, quantity, line_total from order_items where order_id = $1", [o.id]);
     const d: OrderEmailData = {
-      orderNumber: o.order_number, customerName: o.customer_name, status: o.status, paymentMethod: o.payment_method, subtotal: o.subtotal, discount: o.discount,
+      orderNumber: o.order_number, customerName: o.customer_name, status: o.status, paymentMethod: o.payment_method, paymentProvider: o.payment_provider, subtotal: o.subtotal, discount: o.discount,
       shippingFee: o.shipping_fee, shippingStatus: o.shipping_status, total: o.total, items: items.map((i) => ({ name: i.product_name, quantity: i.quantity, lineTotal: i.line_total })),
     };
     return renderOrderEmail(row.kind, d, ctx);
@@ -68,7 +75,10 @@ export interface ProcessResult { configured: boolean; sent: number; failed: numb
  */
 export async function processOutbox(db: Db, ctx: EmailContext, send: SendFn | null, limit = 20): Promise<ProcessResult> {
   const result: ProcessResult = { configured: send !== null, sent: 0, failed: 0, expired: 0, skipped: 0 };
+  await expireUnpaidOnlineOrders(db).catch(() => 0); // housekeeping that runs whenever the queue runs, even with email switched off
   if (!send) return result; // not configured: leave everything queued, never pretend to send
+
+  await releaseRestockedAlerts(db); // catches any restock that happened without going through an admin page
 
   const rows = await db.tx((q) =>
     q.query<OutboxRow>(

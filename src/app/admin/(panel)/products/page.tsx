@@ -1,3 +1,4 @@
+import { displayName } from "@/lib/domain/display";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -10,8 +11,8 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
   await requireAdmin("manager");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().slice(0, 80);
-  const rows = await (await getDb()).query<{ id: string; name: string; price: number; sale_price: number | null; stock: number; published: boolean; sku: string | null }>(
-    `select id, name, price, sale_price, stock, published, sku from products where ($1 = '' or name ilike '%' || $1 || '%' or sku ilike '%' || $1 || '%') order by created_at desc limit 200`, [q]);
+  const rows = await (await getDb()).query<{ id: string; name: string; price: number; sale_price: number | null; stock: number; published: boolean; sku: string | null; variant_label: string | null }>(
+    `select id, name, price, sale_price, stock, published, sku, variant_label from products where ($1 = '' or name ilike '%' || $1 || '%' or variant_label ilike '%' || $1 || '%' or sku ilike '%' || $1 || '%') order by created_at desc limit 200`, [q]);
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -27,7 +28,7 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
             {rows.length === 0 && <tr><td className={td} colSpan={5}>No products yet. Add your first product.</td></tr>}
             {rows.map((p) => (
               <tr key={p.id}>
-                <td className={td}><Link className="font-semibold text-accent" href={`/admin/products/${p.id}`}>{p.name}</Link></td>
+                <td className={td}><Link className="font-semibold text-accent" href={`/admin/products/${p.id}`}>{displayName(p.name, p.variant_label)}</Link></td>
                 <td className={td}>{p.sku ?? "—"}</td>
                 <td className={td}>{formatPKR(p.sale_price ?? p.price)}</td>
                 <td className={td}>{p.stock}</td>

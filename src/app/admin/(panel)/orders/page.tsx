@@ -13,8 +13,8 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const status = (ORDER_STATUSES as readonly string[]).includes(sp.status ?? "") ? sp.status! : "";
   const q = (sp.q ?? "").trim().slice(0, 60);
-  const rows = await (await getDb()).query<{ id: string; order_number: string; status: string; customer_name: string; phone: string; city: string; total: number; created_at: string; shipping_status: string }>(
-    `select id, order_number, status, customer_name, phone, city, total, created_at, shipping_status from orders
+  const rows = await (await getDb()).query<{ id: string; order_number: string; status: string; customer_name: string; phone: string; city: string; total: number; created_at: string; shipping_status: string; payment_method: string; payment_status: string }>(
+    `select id, order_number, status, customer_name, phone, city, total, created_at, shipping_status, payment_method, payment_status from orders
      where ($1 = '' or status = $1) and ($2 = '' or order_number ilike '%' || $2 || '%' or phone like '%' || $2 || '%' or customer_name ilike '%' || $2 || '%')
      order by created_at desc limit 200`, [status, q]);
   return (
@@ -22,9 +22,9 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
       <h1 className="text-2xl font-extrabold">Orders</h1>
       <form className="mt-4 flex flex-wrap gap-3">
         <label className="sr-only" htmlFor="q">Search orders</label>
-        <input id="q" name="q" defaultValue={q} placeholder="Order number, name or phone" className="h-11 w-64 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm" />
+        <input id="q" name="q" defaultValue={q} placeholder="Order number, name or phone" className="h-11 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm sm:w-64" />
         <label className="sr-only" htmlFor="status">Status</label>
-        <select id="status" name="status" defaultValue={status} className="h-11 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm">
+        <select id="status" name="status" defaultValue={status} className="h-11 min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm sm:flex-none">
           <option value="">All statuses</option>
           {ORDER_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
         </select>
@@ -41,7 +41,8 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
                 <td className={td}><Link className="font-semibold text-accent" href={`/admin/orders/${o.id}`}>{o.order_number}</Link></td>
                 <td className={td}>{o.customer_name}<br /><span className="text-xs text-muted">{o.phone}</span></td>
                 <td className={td}>{o.city}</td>
-                <td className={td}>{formatPKR(o.total)}{o.shipping_status === "needs_confirmation" && <span className="block text-xs text-warn">delivery fee TBC</span>}</td>
+                <td className={td}>{formatPKR(o.total)}{o.shipping_status === "needs_confirmation" && <span className="block text-xs text-warn">delivery fee TBC</span>}
+                  {o.payment_method !== "cod" && <span className={`block text-xs ${o.payment_status === "paid" ? "text-ok" : "text-warn"}`}>{o.payment_status === "paid" ? "paid" : o.payment_status === "pending" && o.payment_method === "bank_transfer" ? "payment to check" : "awaiting payment"}</span>}</td>
                 <td className={td}>{STATUS_LABEL[o.status] ?? o.status}</td>
                 <td className={td}>{fmtDate(o.created_at)}</td>
               </tr>

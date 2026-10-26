@@ -6,6 +6,7 @@ import { orderTotals, type Coupon } from "@/lib/domain/pricing";
 import { quoteShipping, type ShippingConfig } from "@/lib/domain/shipping";
 import { getPaymentOptions } from "@/lib/payments";
 import { queueStaffAlert } from "@/lib/email/alerts";
+import { displayName } from "@/lib/domain/display";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
@@ -16,7 +17,9 @@ export const checkoutSchema = z.object({
   area: z.string().trim().max(120).optional(),
   address: z.string().trim().min(8, "Please enter your complete delivery address").max(500, "That address is too long"),
   notes: z.string().trim().max(500).optional(),
-  paymentMethod: z.enum(["cod", "bank_transfer"]),
+  paymentMethod: z.enum(["cod", "bank_transfer", "online"]),
+  /** Which gateway, when paying online. Checked against the gateways that are really live. */
+  paymentProvider: z.enum(["safepay", "jazzcash", "easypaisa"]).optional(),
   couponCode: z.string().trim().max(40).optional(),
   // Only product id + quantity are accepted from the browser. Prices never are.
   items: z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(50) })).min(1).max(50),
@@ -47,7 +50,7 @@ export async function getShippingConfig(db: Pick<Db, "query">): Promise<Shipping
 }
 
 /** `opts.customerId` comes from the signed-in session on the server, never from the browser form. */
-export async function createOrder(db: Db, raw: unknown, opts: { customerId?: string } = {}): Promise<CreatedOrder> {
+export async function createOrder(db: Db, raw: unknown, opts: { customerId?: string; staff?: boolean } = {}): Promise<CreatedOrder> {
   const input = checkoutSchema.parse(raw);
   const phone = normalizePkMobile(input.phone);
   if (!phone) throw new CheckoutError("invalid_phone", "Please enter a valid Pakistani mobile number.");
@@ -62,8 +65,9 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
       return { orderNumber: e.order_number, trackingToken: null, total: e.total, shippingFee: e.shipping_fee, shippingStatus: e.shipping_status, duplicate: true };
     }
 
-    const methods = await getPaymentOptions(q);
-    if ((input.paymentMethod === "cod" && !methods.cod) || (input.paymentMethod === "bank_transfer" && !methods.bankTransfer)) {
+    const methods = await getPaymentOptions(q, { staff: opts.staff });
+    if ((input.paymentMethod === "cod" && !methods.cod) || (input.paymentMethod === "bank_transfer" && !methods.bankTransfer)
+      || (input.paymentMethod === "online" && !(input.paymentProvider && methods.online.includes(input.paymentProvider)))) {
       throw new CheckoutError("payment_unavailable", "That payment method is not available right now. Please choose another.");
     }
 
@@ -77,8 +81,8 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     const lines: { productId: string; name: string; sku: string | null; unitPrice: number; quantity: number }[] = [];
     for (const [productId, quantity] of qty) {
       // Atomic guard: decrement only if published and enough stock. No oversell possible even under concurrency.
-      const rows = await q.query<{ name: string; sku: string | null; price: number; sale_price: number | null }>(
-        "update products set stock = stock - $2, updated_at = now() where id = $1 and published and stock >= $2 returning name, sku, price, sale_price",
+      const rows = await q.query<{ name: string; sku: string | null; price: number; sale_price: number | null; variant_label: string | null }>(
+        "update products set stock = stock - $2, updated_at = now() where id = $1 and published and stock >= $2 returning name, sku, price, sale_price, variant_label",
         [productId, quantity],
       );
       if (!rows[0]) {
@@ -87,7 +91,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
         throw new CheckoutError("out_of_stock", `Only ${p[0].stock} of "${p[0].name}" left in stock.`, { productId, available: p[0].stock });
       }
       const r = rows[0];
-      lines.push({ productId, name: r.name, sku: r.sku, unitPrice: r.sale_price ?? r.price, quantity });
+      lines.push({ productId, name: displayName(r.name, r.variant_label), sku: r.sku, unitPrice: r.sale_price ?? r.price, quantity });
     }
 
     let coupon: Coupon | null = null;
@@ -105,6 +109,10 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     const sub = orderTotals(lines, null, 0).subtotal;
     const quote = quoteShipping(config, input.city, sub);
     if (quote.status === "not_serviceable") throw new CheckoutError("not_serviceable", "We cannot deliver to this city yet.");
+    if (input.paymentMethod === "online" && quote.status !== "quoted") {
+      // The amount charged must be the final amount. An unquoted delivery fee is still to be agreed, so it cannot be paid online yet.
+      throw new CheckoutError("payment_unavailable", "Online payment needs a confirmed delivery fee. Please choose cash on delivery or bank transfer, and we will confirm the fee with you.");
+    }
     if (quote.status === "quoted" && input.paymentMethod === "cod" && !quote.codAvailable) {
       throw new CheckoutError("cod_unavailable", "Cash on delivery is not available for this city.");
     }
@@ -116,10 +124,11 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     const token = crypto.randomBytes(24).toString("base64url");
     const [{ id: orderId }] = await q.query<{ id: string }>(
       `insert into orders (order_number, idempotency_key, tracking_token_hash, customer_name, phone, email, city, area, address, notes,
-         payment_method, coupon_code, subtotal, discount, shipping_fee, total, shipping_status, shipping_policy_version, customer_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) returning id`,
+         payment_method, coupon_code, subtotal, discount, shipping_fee, total, shipping_status, shipping_policy_version, customer_id, payment_provider, payment_status)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) returning id`,
       [orderNumber, input.idempotencyKey, sha256(token), input.customerName, phone, input.email ?? null, input.city, input.area ?? null, input.address, input.notes ?? null,
-        input.paymentMethod, couponCode, totals.subtotal, totals.discount, totals.shippingFee, totals.total, quote.status, config.version, opts.customerId ?? null],
+        input.paymentMethod, couponCode, totals.subtotal, totals.discount, totals.shippingFee, totals.total, quote.status, config.version, opts.customerId ?? null,
+        input.paymentMethod === "online" ? input.paymentProvider! : null, input.paymentMethod === "online" ? "pending" : "unpaid"],
     );
     for (const l of lines) {
       await q.query(
@@ -129,7 +138,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     }
     await q.query("insert into order_status_history (order_id, from_status, to_status, actor) values ($1, null, 'pending_confirmation', 'customer')", [orderId]);
     await q.query("insert into analytics_events(name, path) values ('order_placed', '/checkout')");
-    await queueStaffAlert(q, "order", orderNumber, `${lines.reduce((s, l) => s + l.quantity, 0)} item(s), ${new Intl.NumberFormat("en-PK").format(totals.total)} PKR, ${input.paymentMethod === "cod" ? "cash on delivery" : "bank transfer"}, ${input.city.slice(0, 40)}`);
+    await queueStaffAlert(q, "order", orderNumber, `${lines.reduce((s, l) => s + l.quantity, 0)} item(s), ${new Intl.NumberFormat("en-PK").format(totals.total)} PKR, ${input.paymentMethod === "cod" ? "cash on delivery" : input.paymentMethod === "online" ? `online payment via ${input.paymentProvider} (awaiting payment)` : "bank transfer"}, ${input.city.slice(0, 40)}`);
     if (input.email) {
       await q.query(
         "insert into notification_outbox (kind, recipient, payload, dedupe_key) values ('order_received', $1, $2, $3) on conflict (dedupe_key) do nothing",

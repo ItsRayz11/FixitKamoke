@@ -1,3 +1,4 @@
+import { paymentLabel } from "@/lib/domain/payment-label";
 import { formatPKR } from "@/lib/domain/money";
 
 export interface EmailContext {
@@ -33,6 +34,7 @@ export interface OrderEmailData {
   customerName: string;
   status: string;
   paymentMethod: string;
+  paymentProvider?: string | null;
   subtotal: number;
   discount: number;
   shippingFee: number;
@@ -55,7 +57,7 @@ const orderText = (d: OrderEmailData) =>
 export function renderOrderEmail(kind: string, d: OrderEmailData, ctx: EmailContext): Rendered | null {
   const track = `${ctx.baseUrl}/track`;
   const first = escapeHtml(d.customerName.split(" ")[0] ?? d.customerName);
-  const pay = d.paymentMethod === "cod" ? "Cash on delivery" : "Bank transfer";
+  const pay = paymentLabel(d.paymentMethod, d.paymentProvider);
   const lines: Record<string, { subject: string; intro: string; plain: string }> = {
     order_received: {
       subject: `We received your order ${d.orderNumber}`,
@@ -111,6 +113,19 @@ export function renderRepairEmail(kind: string, d: RepairEmailData, ctx: EmailCo
     return { subject, html, text: `Your repair request ${d.reference} is now: ${d.label}.${priceText}${d.customerMessage ? `\n${d.customerMessage}` : ""}\n\nSee details: ${track}` };
   }
   return null;
+}
+
+export function renderBackInStock(d: { name: string; slug: string; stock: number }, ctx: EmailContext): Rendered {
+  const link = `${ctx.baseUrl}/product/${d.slug}`;
+  const subject = `${d.name} is back in stock`;
+  const html = shell(ctx, subject, p(`Good news: <strong>${escapeHtml(d.name)}</strong> is back in stock.`) +
+    p(`<span style="font-size:14px;color:#475569">Stock is limited and can sell out again, so we cannot promise it will still be here when you open this. You asked us for this one email; we will not send another about this item.</span>`) +
+    btn(link, "View the product"));
+  return { subject, html, text: `${d.name} is back in stock.
+
+Stock is limited and can sell out again. You asked us for this one email; we will not send another about this item.
+
+View the product: ${link}` };
 }
 
 export function renderPasswordReset(token: string, ctx: EmailContext): Rendered {

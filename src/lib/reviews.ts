@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Db } from "@/lib/db";
+import { displayName } from "@/lib/domain/display";
 
-export interface Review { id: string; authorName: string; rating: number; body: string; createdAt: string }
+export interface Review { id: string; authorName: string; rating: number; body: string; createdAt: string; finish?: string | null }
 
 export const reviewSchema = z.object({
   rating: z.number().int().min(1, "Choose a star rating").max(5),
@@ -10,10 +11,14 @@ export const reviewSchema = z.object({
 
 export class ReviewError extends Error {}
 
+/** Reviews for a product. A finish (colour) is a separate product row, so reviews of every finish in the same group are shown together, tagged with the finish. */
 export async function approvedReviews(db: Db, productId: string): Promise<Review[]> {
-  const r = await db.query<{ id: string; author_name: string; rating: number; body: string; created_at: Date | string }>(
-    "select id, author_name, rating, body, created_at from reviews where product_id = $1 and status = 'approved' order by created_at desc limit 50", [productId]);
-  return r.map((x) => ({ id: x.id, authorName: x.author_name, rating: x.rating, body: x.body, createdAt: new Date(x.created_at).toISOString() }));
+  const r = await db.query<{ id: string; author_name: string; rating: number; body: string; created_at: Date | string; variant_label: string | null }>(
+    `select r.id, r.author_name, r.rating, r.body, r.created_at, p.variant_label
+     from reviews r join products p on p.id = r.product_id
+     where r.status = 'approved' and (r.product_id = $1 or (p.variant_group is not null and p.variant_group = (select variant_group from products where id = $1)))
+     order by r.created_at desc limit 50`, [productId]);
+  return r.map((x) => ({ id: x.id, authorName: x.author_name, rating: x.rating, body: x.body, createdAt: new Date(x.created_at).toISOString(), finish: x.variant_label }));
 }
 
 /** A customer may review a product only if they received it (delivered order on their account) and have not reviewed it yet. */
@@ -34,4 +39,15 @@ export async function submitReview(db: Db, customer: { id: string; name: string 
   const [first, ...rest] = customer.name.trim().split(/\s+/);
   const display = rest.length ? `${first} ${rest[rest.length - 1][0].toUpperCase()}.` : first;
   await db.query("insert into reviews(product_id, customer_id, author_name, rating, body, status) values ($1,$2,$3,$4,$5,'pending')", [productId, customer.id, display, d.rating, d.body]);
+}
+
+export interface LatestReview extends Review { productName: string; productSlug: string }
+
+/** Newest moderated reviews across the shop, for the homepage. Empty until real customers have reviewed something. */
+export async function latestApprovedReviews(db: Db, limit = 3): Promise<LatestReview[]> {
+  const rows = await db.query<{ id: string; author_name: string; rating: number; body: string; created_at: Date | string; name: string; slug: string; variant_label: string | null }>(
+    `select r.id, r.author_name, r.rating, r.body, r.created_at, p.name, p.slug, p.variant_label
+     from reviews r join products p on p.id = r.product_id
+     where r.status = 'approved' and p.published order by r.created_at desc limit $1`, [limit]);
+  return rows.map((r) => ({ id: r.id, authorName: r.author_name, rating: r.rating, body: r.body, createdAt: new Date(r.created_at).toISOString(), productName: displayName(r.name, r.variant_label), productSlug: r.slug }));
 }

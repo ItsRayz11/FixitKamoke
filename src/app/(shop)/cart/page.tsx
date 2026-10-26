@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCartView } from "@/components/cart/use-cart-view";
 import { formatPKR } from "@/lib/domain/money";
+import { Steps } from "@/components/checkout/steps";
+import { track } from "@/lib/track";
 
 export default function CartPage() {
   const { cart, view, loading, failed } = useCartView();
@@ -23,6 +25,7 @@ export default function CartPage() {
     router.replace("/cart");
   }, [addParam, cart, router]);
   const [confirmClear, setConfirmClear] = useState(false);
+  useEffect(() => { track("cart_view"); }, []);
 
   // Drop products the server says no longer exist.
   const missing = view?.missing ?? [];
@@ -30,9 +33,10 @@ export default function CartPage() {
   const hasProblem = view?.lines.some((l) => l.problem) ?? false;
 
   return (
-    <div className="container-x py-8">
+    <div className="container-x has-purchase-bar py-6 sm:py-8 lg:pb-8">
       <title>Your cart | Fixit</title>
       <h1 className="text-2xl font-extrabold">Your cart</h1>
+      <Steps current={1} />
 
       {failed && <p role="alert" className="mt-4 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm text-danger">We could not load current prices. Please check your connection and refresh.</p>}
       {loading && <div className="mt-6 space-y-3" aria-busy="true" aria-label="Loading cart">{[0, 1].map((i) => <div key={i} className="h-24 animate-pulse rounded-[var(--radius-md)] bg-line" />)}</div>}
@@ -55,14 +59,14 @@ export default function CartPage() {
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
           <ul className="space-y-3">
             {view.lines.map((l) => (
-              <li key={l.productId} className="flex gap-4 rounded-[var(--radius-md)] border border-line bg-surface p-4" data-testid="cart-line">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-canvas">
+              <li key={l.productId} className="flex flex-wrap gap-3 rounded-[var(--radius-lg)] border border-line bg-surface p-3 shadow-[var(--shadow-card)] sm:gap-4 sm:p-4" data-testid="cart-line">
+                <div className="stage h-20 w-20 shrink-0 overflow-hidden rounded-[var(--radius-sm)]">
                   {l.image && (
                     // eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote URL
-                    <img src={l.image} alt="" width={80} height={80} className="h-full w-full object-cover" />
+                    <img src={l.image} alt="" width={80} height={80} className="h-full w-full object-contain p-1" />
                   )}
                 </div>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 basis-40">
                   <Link href={`/product/${l.slug}`} className="font-semibold hover:text-accent">{l.name}</Link>
                   <p className="text-sm text-muted">{formatPKR(l.unitPrice)} each</p>
                   {l.problem && <p role="alert" className="mt-1 text-sm font-semibold text-danger">{l.problem}. Please adjust the quantity.</p>}
@@ -75,19 +79,24 @@ export default function CartPage() {
                     <button className="min-h-11 text-sm font-semibold text-danger underline" onClick={() => cart.remove(l.productId)}>Remove</button>
                   </div>
                 </div>
-                <p className="font-bold">{formatPKR(l.lineTotal)}</p>
+                <p className="basis-full text-right text-sm font-bold sm:basis-auto sm:text-base">{formatPKR(l.lineTotal)}</p>
               </li>
             ))}
           </ul>
 
-          <aside className="h-fit rounded-[var(--radius-md)] border border-line bg-surface p-5 lg:sticky lg:top-24" aria-label="Order summary">
+          <aside className="h-fit rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] lg:sticky lg:top-24" aria-label="Order summary">
             <h2 className="font-bold">Summary</h2>
             <p className="mt-3 flex justify-between text-sm"><span>Subtotal</span><strong data-testid="cart-subtotal">{formatPKR(view.subtotal)}</strong></p>
-            <p className="mt-1 text-xs text-muted">Delivery is calculated at checkout from your city.</p>
+            <p className="mt-1 text-xs text-muted">Delivery is added at checkout once you enter your city. You will see the full total before you place the order.</p>
             {hasProblem ? (
               <p className="mt-4 text-sm text-danger">Fix the items above to continue.</p>
             ) : (
-              <Link href="/checkout" className="mt-4 flex min-h-12 items-center justify-center rounded-[var(--radius-sm)] bg-accent font-semibold text-white hover:bg-accent-strong">Checkout</Link>
+              <div className="purchase-bar lg:static lg:mt-4 lg:p-0">
+                <div className="glass-panel mx-auto flex max-w-xl items-center gap-3 rounded-[var(--radius-lg)] p-2.5 pl-4 lg:!border-0 lg:!bg-transparent lg:!p-0 lg:!shadow-none lg:![backdrop-filter:none]">
+                  <p className="min-w-0 flex-1 leading-tight lg:hidden"><span className="block text-xs text-muted">Subtotal</span><span className="text-base font-extrabold">{formatPKR(view.subtotal)}</span></p>
+                  <Link href="/checkout" className="btn btn-primary !min-h-12 min-w-36 lg:w-full">Checkout</Link>
+                </div>
+              </div>
             )}
             <div className="mt-3 text-center">
               {confirmClear ? (

@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
-import { endAdminSession, startAdminSession } from "@/lib/auth/session";
+import { clearChallengeCookie, endAdminSession, getChallengeCookie, setChallengeCookie, startAdminSession } from "@/lib/auth/session";
+import { completeChallenge, createChallenge, userHasTwoFactor } from "@/lib/auth/two-factor";
 import { rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/audit";
 
@@ -32,8 +33,36 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
     await audit(parsed.data.email, "login_failed", "admin_user", null, { ip: await ip() });
     return { error: "Incorrect email or password.", values };
   }
+  if (await userHasTwoFactor(db, u.id)) {
+    // Password is right, but nothing is granted yet: a short-lived challenge waits for the authenticator code.
+    await setChallengeCookie(await createChallenge(db, u.id));
+    redirect("/admin/login/verify");
+  }
   await startAdminSession(u.id);
   await audit(parsed.data.email, "login", "admin_user", u.id);
+  redirect("/admin");
+}
+
+/** Second step of sign-in: an authenticator code or a recovery code. Five wrong tries end the challenge. */
+export async function verifyTwoFactorAction(_: FormState, form: FormData): Promise<FormState> {
+  if (!rateLimit(`admin-2fa:${await ip()}`, 20, 15 * 60_000)) return { error: "Too many attempts. Try again in a few minutes." };
+  const token = await getChallengeCookie();
+  if (!token) redirect("/admin/login?notice=expired");
+  const db = await getDb();
+  const { result, userId } = await completeChallenge(db, token, String(form.get("code") ?? ""));
+  if (result === "expired" || result === "locked") {
+    await clearChallengeCookie();
+    redirect(`/admin/login?notice=${result}`); // the login page explains why, using a fixed message
+  }
+  if (result === "bad" || !userId) {
+    await audit("unknown", "login_2fa_failed", "admin_user", null, { ip: await ip() });
+    return { error: "That code is not right. Check the code in your app (it changes every 30 seconds) or use a recovery code." };
+  }
+  const u = (await db.query<{ email: string }>("select email from admin_users where id = $1 and active", [userId]))[0];
+  if (!u) { await clearChallengeCookie(); return { error: "This account is not active." }; }
+  await clearChallengeCookie();
+  await startAdminSession(userId);
+  await audit(u.email, "login", "admin_user", userId, { second_factor: true });
   redirect("/admin");
 }
 

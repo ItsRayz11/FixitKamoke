@@ -6,13 +6,14 @@ import { Banner, Card, fmtDate, inputCls, Submit } from "@/components/admin/ui";
 import { formatPKR } from "@/lib/domain/money";
 import { nextStatuses, type OrderStatus } from "@/lib/domain/order-state";
 import { STATUS_LABEL } from "@/lib/orders/lookup";
+import { paymentLabel } from "@/lib/domain/payment-label";
 import { changeStatusAction, setFeeAction, setPaymentAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 interface O {
   id: string; order_number: string; status: OrderStatus; customer_name: string; phone: string; email: string | null; city: string; area: string | null; address: string; notes: string | null;
-  payment_method: string; payment_status: string; coupon_code: string | null; subtotal: number; discount: number; shipping_fee: number; total: number; shipping_status: string;
+  payment_method: string; payment_status: string; payment_provider: string | null; payment_reference: string | null; coupon_code: string | null; subtotal: number; discount: number; shipping_fee: number; total: number; shipping_status: string;
   shipping_policy_version: string; created_at: string;
 }
 
@@ -44,7 +45,11 @@ export default async function OrderAdmin({ params, searchParams }: { params: Pro
           {o.notes && <p className="mt-2 rounded bg-canvas p-2 text-sm"><strong>Note:</strong> {o.notes}</p>}
         </Card>
         <Card title="Payment and delivery" id="pay">
-          <p className="mt-2 text-sm">Method: {o.payment_method === "cod" ? "Cash on delivery" : "Bank transfer"}</p>
+          <p className="mt-2 text-sm">Method: {paymentLabel(o.payment_method, o.payment_provider)}</p>
+          {o.payment_reference && <p className="text-sm">Payment reference: <span className="font-mono">{o.payment_reference}</span></p>}
+          {o.payment_method === "online" && o.payment_status === "paid" && <p className="mt-1 text-sm text-ok">Paid online and confirmed by the payment provider. Refunds are made in the provider&apos;s own dashboard, then mark this order refunded.</p>}
+          {o.payment_method === "online" && o.payment_status === "paid" && ["cancelled", "rejected"].includes(o.status) && <p role="alert" className="mt-1 rounded bg-amber-50 p-2 text-sm font-semibold text-warn">This order is cancelled but the customer has paid. Refund them in the provider&apos;s dashboard.</p>}
+          {o.payment_method === "online" && o.payment_status !== "paid" && <p className="mt-1 text-sm text-warn">Waiting for the payment provider to confirm payment. Do not prepare this order until it shows paid.</p>}
           <p className="text-sm">Policy version: {o.shipping_policy_version}</p>
           <form action={setPaymentAction} className="mt-2 flex gap-2">
             <input type="hidden" name="id" value={o.id} />

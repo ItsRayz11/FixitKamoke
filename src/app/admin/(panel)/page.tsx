@@ -10,13 +10,13 @@ const rate = (a?: number, b?: number) => (b ? `${(((a ?? 0) / b) * 100).toFixed(
 
 function Stat({ label, value, href, note }: { label: string; value: string | number; href?: string; note?: string }) {
   const inner = (
-    <div className="rounded-[var(--radius-md)] border border-line bg-surface p-4">
+    <div className="h-full rounded-[var(--radius-md)] border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
       <p className="text-sm text-muted">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold">{value}</p>
+      <p className={`mt-1 font-extrabold ${typeof value === "string" && value.length > 10 && !value.startsWith("Rs") ? "text-base text-muted" : "text-2xl"}`}>{value}</p>
       {note && <p className="mt-1 text-xs text-muted">{note}</p>}
     </div>
   );
-  return href ? <Link href={href} className="block hover:opacity-90">{inner}</Link> : inner;
+  return href ? <Link href={href} className="block h-full transition-transform active:scale-[0.98] hover:opacity-90">{inner}</Link> : inner;
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
@@ -31,6 +31,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Orders awaiting confirmation" value={s.pendingOrders} href="/admin/orders?status=pending_confirmation" />
         <Stat label="New repair requests" value={s.newRepairs} href="/admin/repairs?status=new" />
+        <Stat label="Waiting for payment" value={s.awaitingPayment} href="/admin/payments" note="Transfers to check and online orders not yet paid" />
         <Stat label="Unanswered messages" value={s.openMessages} href="/admin/messages" />
         <Stat label="Orders, last 30 days" value={s.orders30} />
         <Stat label="Order value, last 30 days" value={formatPKR(s.revenue30)} note="Excludes cancelled, rejected and returned" />

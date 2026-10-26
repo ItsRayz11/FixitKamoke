@@ -1,5 +1,6 @@
 import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { releaseRestockedAlerts } from "@/lib/stock-alerts";
 import { canTransition, RESTOCKS_ON, type OrderStatus } from "@/lib/domain/order-state";
 
 export class OrderAdminError extends Error {}
@@ -29,6 +30,7 @@ export async function transitionOrder(db: Db, orderId: string, to: OrderStatus, 
     if (RESTOCKS_ON.includes(to)) {
       await q.query(
         "update products p set stock = p.stock + i.quantity, updated_at = now() from order_items i where i.order_id = $1 and i.product_id = p.id", [orderId]);
+      await releaseRestockedAlerts(q); // someone may be waiting for exactly this item
       // An order that never happened must not use up a limited coupon.
       if (o.coupon_code) await q.query("update coupons set used_count = greatest(0, used_count - 1) where code = $1", [o.coupon_code]);
     }

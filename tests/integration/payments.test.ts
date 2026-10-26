@@ -21,7 +21,7 @@ afterAll(() => db.close());
 
 describe("payment methods", () => {
   it("both offline methods are on by default", async () => {
-    expect(await getPaymentOptions(db)).toEqual({ cod: true, bankTransfer: true });
+    expect(await getPaymentOptions(db)).toEqual({ cod: true, bankTransfer: true, online: [] });
     expect((await order("cod")).orderNumber).toMatch(/^FX-/);
     expect((await order("bank_transfer")).orderNumber).toMatch(/^FX-/);
   });
@@ -46,12 +46,11 @@ describe("payment methods", () => {
 });
 
 describe("online gateways", () => {
-  it("are never available, even if every credential is present", () => {
-    const env = { JAZZCASH_MERCHANT_ID: "x", JAZZCASH_PASSWORD: "x", JAZZCASH_INTEGRITY_SALT: "x" } as unknown as NodeJS.ProcessEnv;
-    const g = gatewayStatuses(env);
-    expect(g.every((x) => x.available === false)).toBe(true);
-    expect(g.find((x) => x.id === "jazzcash")?.credentialsPresent).toBe(true);
-    expect(g.find((x) => x.id === "easypaisa")?.credentialsPresent).toBe(false);
-    expect(g.find((x) => x.id === "jazzcash")?.reason).toMatch(/Not connected/);
+  const jc = { JAZZCASH_MERCHANT_ID: "x", JAZZCASH_PASSWORD: "x", JAZZCASH_INTEGRITY_SALT: "x" } as unknown as NodeJS.ProcessEnv;
+  it("are never offered by credentials alone: they also need to be switched on and have a verified test payment", async () => {
+    const g = await gatewayStatuses(db, jc);
+    expect(g.find((x) => x.id === "jazzcash")).toMatchObject({ credentialsPresent: true, stage: "off", verified: false });
+    expect(g.find((x) => x.id === "easypaisa")).toMatchObject({ credentialsPresent: false, stage: "not_built" });
+    expect((await getPaymentOptions(db, { env: jc })).online).toEqual([]);
   });
 });

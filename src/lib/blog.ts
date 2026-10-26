@@ -61,6 +61,15 @@ export async function relatedPosts(post: Post, limit = 3): Promise<Post[]> {
   return (await (await getDb()).query<Row>(`select ${COLS} from blog_posts where status = 'published' and id <> $1 order by published_at desc limit $2`, [post.id, limit])).map(map);
 }
 
+/** Guides that recommend this product (owner-tagged), topped up with the newest guides so the buying-advice block is never empty when guides exist. */
+export async function postsForProduct(productSlug: string, limit = 2): Promise<Post[]> {
+  const db = await getDb();
+  const tagged = (await db.query<Row>(`select ${COLS} from blog_posts where status = 'published' and $1 = any(product_slugs) order by published_at desc limit $2`, [productSlug, limit])).map(map);
+  if (tagged.length >= limit) return tagged;
+  const more = (await db.query<Row>(`select ${COLS} from blog_posts where status = 'published' and not ($1 = any(product_slugs)) order by published_at desc limit $2`, [productSlug, limit - tagged.length])).map(map);
+  return [...tagged, ...more];
+}
+
 export async function listAllPosts(db: Db): Promise<Post[]> {
   return (await db.query<Row>(`select ${COLS} from blog_posts order by (status = 'draft') desc, updated_at desc`)).map(map);
 }

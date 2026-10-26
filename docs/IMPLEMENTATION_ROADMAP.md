@@ -21,3 +21,27 @@ Owner approvals (2026-10-25): build everything in this list, including customer 
 | M | Security pass (authz tests, headers, upload rules, rate limits), accessibility pass, performance measurement | DONE (2026-10-25); production-mode suite, CSP/HSTS, RLS, secret scan, throttled lab performance numbers; manual device/screen-reader passes still owed |
 | N | Docs set + deployment guide + launch blockers | DONE (2026-10-25) |
 | O | Final in-depth cross-audit of everything; fix; final report | DONE (2026-10-25) |
+
+## V2 addendum (mobile-first, liquid glass + titanium) — started 2026-10-25
+Source: [MASTER_PROMPT_V2.md](MASTER_PROMPT_V2.md). Traceability: [V2_REQUIREMENTS_CHECKLIST.md](V2_REQUIREMENTS_CHECKLIST.md). Same rule: build a phase, cross-check it (lint, tsc, tests, browser at 320/360/390/414), fix, then continue.
+
+| Phase | Scope | Status |
+|---|---|---|
+| V2-1 | Design system: titanium/glass/holographic tokens, utilities, motion CSS, glass header + mobile nav drawer | DONE (2026-10-25) |
+| V2-2 | Data: finish/variant model (linked products with real images), admin form, new funnel events, demo seed variants | DONE (2026-10-25) |
+| V2-3 | Mobile product page in the specified 13-step order, finish selector, sticky purchase bar, cart confirmation | DONE (2026-10-25) |
+| V2-4 | Mobile homepage (11-step order) and category/shop listing | DONE (2026-10-25) |
+| V2-5 | Cart and checkout layouts: progress, always-visible totals, input preserved on errors | DONE (2026-10-25) |
+| V2-6 | Shared motion system: Titanium Spotlight, Liquid Glass Reveal, Tactile Purchase Response | DONE (2026-10-25) |
+| V2-7 | Retention + measurement: funnel events, admin funnel report, compare, post-purchase help | DONE (2026-10-25) |
+| V2-8 | Admin phone-frame design-review preview | DONE (2026-10-25) |
+| V2-9 | Test pass: unit, integration, e2e at 320/360/393/414, axe, reduced motion, regression | DONE (2026-10-25) |
+| V2-10 | Docs update and final in-depth audit of every phase | DONE (2026-10-25) |
+| V2-11 | Cross-check pass: finish names in admin, reviews across finishes, preview overflow, contrast | DONE (2026-10-25) |
+| V2-12 | Admin rebuilt mobile-first: sidebar, bottom tabs, menu drawer, table cards, tested at 4 widths | DONE (2026-10-25) |
+| V2-13 | Back-in-stock alerts (migration 008) | DONE (2026-10-25) |
+| V2-14 | Optional two-step sign-in for staff (migration 009) | DONE (2026-10-25) |
+| V2-15 | Cloudinary upload and optimised delivery | DONE (2026-10-25) |
+| V2-16 | 360° turntable viewer (migration 010) | DONE (2026-10-25) |
+| V2-17 | Online payments: Safepay + JazzCash adapters, testing gate, settlement, expiry; manual payment proof | DONE (2026-10-25); live-account test owed |
+| V2-18 | Go-live guide: Neon, hosting settings, gateways, turntable, real-phone checklist | DONE (2026-10-25) |

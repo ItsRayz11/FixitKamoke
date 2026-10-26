@@ -8,6 +8,10 @@ import { getCheckoutPrefill, getPaymentChoices, getShippingView, placeOrder, typ
 import type { PaymentOptions } from "@/lib/payments";
 import { formatPKR } from "@/lib/domain/money";
 import { track } from "@/lib/track";
+import { Steps } from "@/components/checkout/steps";
+import { ONLINE_HINT, ONLINE_LABEL } from "@/lib/domain/gateways";
+import { launchPayment, rememberToken } from "@/lib/pay-client";
+import { startOnlinePayment } from "@/app/actions/pay";
 
 const field = "mt-1 h-12 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-base";
 
@@ -16,8 +20,8 @@ export default function CheckoutPage() {
   const { cart, view, loading } = useCartView();
   const [city, setCity] = useState("");
   const [ship, setShip] = useState<ShippingView | null>(null);
-  const [payment, setPayment] = useState<"cod" | "bank_transfer">("cod");
-  const [methods, setMethods] = useState<PaymentOptions>({ cod: true, bankTransfer: true });
+  const [payment, setPayment] = useState<string>("cod"); // "cod", "bank_transfer" or "online:<gateway>"
+  const [methods, setMethods] = useState<PaymentOptions>({ cod: true, bankTransfer: true, online: [] });
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState<{ message: string; fields?: Record<string, string> } | null>(null);
   const [pending, start] = useTransition();
@@ -65,6 +69,8 @@ export default function CheckoutPage() {
   const fee = shipNow?.status === "quoted" ? shipNow.fee : 0;
   const codBlocked = shipNow?.status === "quoted" && !shipNow.codAvailable;
   const blocked = shipNow?.status === "not_serviceable" || shipNow?.status === "unconfigured";
+  const onlineOk = shipNow?.status === "quoted"; // the amount charged must be final, so online payment waits for a confirmed delivery fee
+  const onlineBlocked = payment.startsWith("online:") && !onlineOk;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,14 +81,24 @@ export default function CheckoutPage() {
       const r = await placeOrder({
         idempotencyKey: idem.current,
         customerName: s("customerName"), phone: s("phone"), email: s("email"), city: s("city"), area: s("area"),
-        address: s("address"), notes: s("notes"), paymentMethod: payment, couponCode: s("couponCode"),
+        address: s("address"), notes: s("notes"), paymentMethod: payment.startsWith("online:") ? "online" : payment, paymentProvider: payment.startsWith("online:") ? payment.slice(7) : undefined, couponCode: s("couponCode"),
         items: cart.lines,
       });
       if (r.ok) {
         cart.clear();
-        router.push(`/order/${r.orderNumber}?t=${encodeURIComponent(r.token)}`);
+        rememberToken(r.orderNumber, r.token);
+        const orderUrl = `/order/${r.orderNumber}?t=${encodeURIComponent(r.token)}`;
+        if (payment.startsWith("online:")) {
+          // The order exists and is waiting for payment; hand the customer to the payment provider.
+          const started = await startOnlinePayment(r.orderNumber, r.token);
+          const problem = launchPayment(started);
+          if (problem) router.push(`${orderUrl}&pay=failed`);
+          return;
+        }
+        router.push(orderUrl);
       } else {
         setError({ message: r.message, fields: r.fieldErrors });
+        track("checkout_error");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     });
@@ -100,12 +116,13 @@ export default function CheckoutPage() {
   const err = (k: string) => fe[k] && <p className="mt-1 text-sm text-danger" role="alert">{fe[k]}</p>;
 
   return (
-    <div className="container-x py-8">
+    <div className="container-x has-purchase-bar py-6 sm:py-8 lg:pb-8">
       <title>Checkout | Fixit</title>
       <h1 className="text-2xl font-extrabold">Checkout</h1>
+      <Steps current={2} />
       {error && <p role="alert" className="mt-4 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm font-semibold text-danger">{error.message}</p>}
 
-      <form onSubmit={onSubmit} className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px]" noValidate>
+      <form onSubmit={onSubmit} className="group/form mt-6 grid gap-8 lg:grid-cols-[1fr_360px]" noValidate>
         <div className="space-y-4">
           <div><label htmlFor="customerName" className="font-semibold">Full name</label><input id="customerName" name="customerName" autoComplete="name" required className={field} />{err("customerName")}</div>
           <div><label htmlFor="phone" className="font-semibold">Mobile number</label><input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="03XX XXXXXXX" required className={field} />{err("phone")}</div>
@@ -120,7 +137,13 @@ export default function CheckoutPage() {
             <legend className="font-semibold">Payment method</legend>
             {methods.cod && <label className="mt-2 flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "cod"} onChange={() => setPayment("cod")} className="h-5 w-5" /> Cash on delivery</label>}
             {methods.bankTransfer && <label className="flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "bank_transfer"} onChange={() => setPayment("bank_transfer")} className="h-5 w-5" /> Bank transfer <span className="text-xs text-muted">(we will message you the account details)</span></label>}
-            {!methods.cod && !methods.bankTransfer && <p role="alert" className="text-sm text-danger">No payment method is available right now. Please contact us.</p>}
+            {methods.online.map((g) => (
+              <label key={g} className={`flex min-h-11 items-center gap-3 ${onlineOk ? "" : "opacity-60"}`}>
+                <input type="radio" name="pay" disabled={!onlineOk} checked={payment === `online:${g}`} onChange={() => setPayment(`online:${g}`)} className="h-5 w-5" /> {ONLINE_LABEL[g] ?? g}
+              </label>
+            ))}
+            {methods.online.length > 0 && <p className="text-xs text-muted">{onlineOk ? ONLINE_HINT : "Online payment becomes available once your city is entered and the delivery fee is confirmed."}</p>}
+            {!methods.cod && !methods.bankTransfer && methods.online.length === 0 && <p role="alert" className="text-sm text-danger">No payment method is available right now. Please contact us.</p>}
             {codBlocked && payment === "cod" && <p role="alert" className="text-sm text-danger">Cash on delivery is not available for this city. Please choose bank transfer.</p>}
           </fieldset>
 
@@ -128,7 +151,7 @@ export default function CheckoutPage() {
             <span>I have read the <Link className="underline" href="/policies/shipping" target="_blank">shipping</Link>, <Link className="underline" href="/policies/returns" target="_blank">returns</Link> and <Link className="underline" href="/policies/terms" target="_blank">terms</Link>.</span></label>
         </div>
 
-        <aside className="h-fit rounded-[var(--radius-md)] border border-line bg-surface p-5 lg:sticky lg:top-24" aria-label="Order summary">
+        <aside className="h-fit rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] lg:sticky lg:top-24" aria-label="Order summary">
           <h2 className="font-bold">Order summary</h2>
           {loading && <div className="mt-3 h-16 animate-pulse rounded bg-line" aria-busy="true" />}
           <ul className="mt-3 space-y-2 text-sm">
@@ -146,10 +169,16 @@ export default function CheckoutPage() {
           {shipNow?.status === "unconfigured" && <p role="alert" className="mt-3 text-sm text-danger">Delivery is not set up yet, so orders cannot be placed.</p>}
           {shipNow?.status === "quoted" && shipNow.etaDays && <p className="mt-3 text-sm text-muted">Estimated delivery: {shipNow.etaDays[0]}–{shipNow.etaDays[1]} days.</p>}
           <p className="mt-2 text-xs text-muted">Final prices and stock are confirmed by the server when you place the order.</p>
-          <button type="submit" disabled={pending || !agree || !!problems || blocked || !!(codBlocked && payment === "cod") || !view?.lines.length}
-            className="mt-4 flex min-h-12 w-full items-center justify-center rounded-[var(--radius-sm)] bg-accent font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:bg-slate-300">
-            {pending ? "Placing order…" : "Place order"}
-          </button>
+          <div className="purchase-bar group-has-[input:not([type=checkbox]):not([type=radio]):focus,textarea:focus,select:focus]/form:hidden lg:static lg:mt-4 lg:p-0 lg:!block">
+            <div className="glass-panel mx-auto flex max-w-xl items-center gap-3 rounded-[var(--radius-lg)] p-2.5 pl-4 lg:block lg:!border-0 lg:!bg-transparent lg:!p-0 lg:!shadow-none lg:![backdrop-filter:none]">
+              <p className="min-w-0 flex-1 leading-tight lg:hidden"><span className="block text-xs text-muted">Total to pay</span><span className="text-base font-extrabold">{formatPKR(subtotal + fee)}{shipNow?.status === "needs_confirmation" ? "+" : ""}</span></p>
+              <button type="submit" disabled={pending || !agree || !!problems || blocked || onlineBlocked || !!(codBlocked && payment === "cod") || !view?.lines.length}
+                className="btn btn-primary !min-h-12 min-w-36 lg:w-full">
+                {pending ? (payment.startsWith("online:") ? "Taking you to payment…" : "Placing order…") : payment.startsWith("online:") ? "Place order and pay" : "Place order"}
+              </button>
+            </div>
+          </div>
+          {!agree && <p className="mt-2 text-xs text-muted">Tick the box above to confirm you have read our policies.</p>}
         </aside>
       </form>
     </div>

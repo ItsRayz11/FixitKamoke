@@ -65,3 +65,32 @@ New orders, repair requests and contact messages queue an email to the contact a
 
 ## 18. Accessibility finding
 A scroll-reveal that faded text in from low opacity made contrast checks fail while the text was still faded. The reveal now only slides (no opacity change).
+
+## 19. V2 decisions (mobile-first, Liquid Glass + Titanium)
+- **Finishes are separate product rows linked by a group** (migration 007), not a variants table. Stock, SKU, price, photos, carts and order snapshots already work per product, so the checkout/stock code did not change and overselling stays impossible per finish. Cost: the admin creates one product per finish (documented in the form and PRODUCT_PHOTOGRAPHY_GUIDE.md). Order lines record "Name — Finish".
+- **Selecting a finish is a real product switch**: photos, price, stock and the address bar (`history.replaceState`) change together. A finish without photos shows an honest placeholder, never another colour's picture.
+- **Required finish**: if the owner ticks it, nothing is preselected, "Add to cart" becomes "Choose a finish" and guides focus to the choice.
+- **Component styles live in `@layer components`** so Tailwind utilities still override them (an unlayered `.purchase-bar{position:fixed}` otherwise beats `lg:static`).
+- **Purchase bar** is shown only below 1024px, only while the in-page button is off screen, and hides while a text field is focused so it never covers a form. Safe-area insets and `viewport-fit=cover` are used; pinch-zoom is not disabled.
+- **Funnel analytics** gain listing/click/cart/checkout-error/repair-start events and a coarse `device` (viewport ≤767px, not the user agent). Still count-only; Do Not Track / GPC honoured. The admin Funnel page shows ratios only after 30 events and states that no A/B test is running.
+- **Popular categories** are ranked by real product-view counts (30 days) then in-stock counts; nothing is fabricated. Homepage reviews appear only when approved reviews exist.
+- **Phone preview** is an admin-only review aid (an iframe in a device-shaped frame); production never renders inside a frame. CSP `frame-src` gained `'self'` for it.
+- **Titanium Spotlight** tilt is on only for hover-capable fine pointers and never under reduced motion; touch devices get a static stage plus a one-off light sweep.
+- **3D rotation, direct image upload and AI-generated product imagery were not built.** Real photographs per finish and angle only.
+
+## 20. V2 follow-up decisions
+- **Admin tables become cards on phones by labelling cells from the header at run time** (one small client component) instead of rewriting 14 tables. Before it runs, a table scrolls sideways as it always did, so nothing is lost without JavaScript.
+- **Back-in-stock is transactional, not marketing**: one email per request, no consent tick needed, address deleted within 30 days (alert row and queued email). It is offered only for something sold out right now. A database sweep ("alerts whose product now has stock") sends it, so every way stock can return is covered, including a cancelled order restocking.
+- **Reviews are shared across the finishes of one product** (and tagged with the finish) so a colour with no reviews of its own still shows the product's reviews.
+- **Two-step sign-in is optional and key-gated, not enforced.** It needs a `TWO_FACTOR_KEY` so secrets are encrypted at rest; without it the page says what to configure and nothing changes. Not enforced because the owner could lock themselves out before enrolling; recommended for everyone. Recovery: single-use codes, and an owner can reset a colleague. SMS codes were rejected (SIM-swap risk, cost).
+
+## 21. Online payments, uploads and the 360° view
+- **Money is only ever marked paid by a verified message from the provider** (signature + our reference + exact amount). The customer's browser, the return address and the result page cannot change a payment's status. Unknown, altered, wrong-amount or repeated messages change nothing and are logged.
+- **A gateway cannot go live untested.** Off -> testing (visible to signed-in staff only) -> live. "Live" stays locked until a signature-verified message matched to a real payment of ours has been received. This replaces "trust that the integration is right" with proof from the owner's own account, which matters because the adapters were written from public documentation, not run against live accounts.
+- **Online payment needs a confirmed delivery fee**, so the amount charged is final. Orders with an "ask us" delivery fee use cash or transfer.
+- **Abandoned online orders are cancelled after 24 hours** so they cannot hold limited stock. A payment that arrives for a cancelled order is still recorded and flagged for refund.
+- **Easypaisa is not built**: its notification format is only given to merchants. Guessing a payment-confirmation format is how shops end up with unpaid orders marked paid or paid orders marked unpaid.
+- **Refunds stay manual** in each provider's dashboard, then marked on the order.
+- **Uploads go browser -> Cloudinary with a short-lived, signed ticket** (folder and file types are part of the signature; the secret never reaches the browser). Photos are still stored as links, so the "paste a link" route keeps working.
+- **360° view uses real photographs only** (no generated or interpolated frames): a customer must see the actual item. Frames belong to a finish, 8 to 72 per product, and nothing animates by itself.
+- **The website address is not editable in the admin**; it comes from the host's `SITE_URL`, and the admin shows what it currently is, with a warning while it is still a test address.

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listCategories, listProducts, type ProductFilter } from "@/lib/catalog";
+import { TrackView } from "@/components/analytics/track-view";
 import { ProductCard } from "@/components/product/product-card";
 import { Sheet } from "@/components/ui/sheet";
 
@@ -27,7 +28,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   const category = one(sp.category).slice(0, 60);
   const sortRaw = one(sp.sort);
   const sort = (["newest", "price_asc", "price_desc", "name"] as const).find((s) => s === sortRaw) ?? "newest";
-  const filter: ProductFilter = { q, category: category || undefined, min: num(one(sp.min)), max: num(one(sp.max)), inStock: one(sp.stock) === "1", sort };
+  const filter: ProductFilter = { q, category: category || undefined, min: num(one(sp.min)), max: num(one(sp.max)), inStock: one(sp.stock) === "1", sort, collapse: true };
 
   const [categories, products] = await Promise.all([listCategories(), listProducts(filter)]);
   const active = Boolean(q || category || filter.min !== undefined || filter.max !== undefined || filter.inStock);
@@ -61,19 +62,30 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
         </select>
       </div>
       <div className="flex gap-3">
-        <button className="min-h-11 flex-1 rounded-[var(--radius-sm)] bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong">Apply</button>
+        <button className="btn btn-primary flex-1">Apply</button>
         {active && <Link href="/shop" className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-accent">Clear</Link>}
       </div>
     </form>
   );
 
   return (
-    <div className="container-x py-8">
+    <div className="container-x py-6 sm:py-8">
+      <TrackView event="listing_view" />
       <h1 className="text-2xl font-extrabold">{q ? `Results for “${q}”` : "Shop all"}</h1>
+      {categories.length > 0 && (
+        <nav aria-label="Categories" className="-mx-4 mt-4 overflow-x-auto px-4 pb-1">
+          <ul className="flex gap-2">
+            <li><Link href="/shop" aria-current={!category ? "page" : undefined} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold ${!category ? "bg-ink text-white" : "ti-surface"}`}>All</Link></li>
+            {categories.map((c) => (
+              <li key={c.id}><Link href={`/shop?category=${c.slug}`} aria-current={category === c.slug ? "page" : undefined} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold ${category === c.slug ? "bg-ink text-white" : "ti-surface"}`}>{c.name}</Link></li>
+            ))}
+          </ul>
+        </nav>
+      )}
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Phones and tablets: filters open in an accessible bottom drawer. Desktop: always-visible sidebar. */}
         <div className="lg:hidden">
-          <Sheet title="Filters and sorting" triggerClassName="inline-flex min-h-11 w-full items-center justify-between rounded-[var(--radius-md)] border border-line bg-surface px-4 text-sm font-semibold" trigger={<>Filters &amp; sorting{active && <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-white">on</span>}</>}>
+          <Sheet title="Filters and sorting" triggerClassName="btn btn-ti w-full !justify-between" trigger={<>Filters &amp; sorting{active && <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-white">on</span>}</>}>
             {filters("m-")}
           </Sheet>
         </div>

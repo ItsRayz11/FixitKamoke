@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listCategories, listProducts } from "@/lib/catalog";
+import { TrackView } from "@/components/analytics/track-view";
 import { ProductCard } from "@/components/product/product-card";
 import { site } from "@/config/site";
 
@@ -18,7 +19,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   const cat = (await listCategories()).find((x) => x.slug === slug);
   if (!cat) notFound();
-  const products = await listProducts({ category: slug, limit: 100 });
+  const products = await listProducts({ category: slug, limit: 100, collapse: true });
   const jsonLd = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
@@ -28,7 +29,8 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
     ],
   };
   return (
-    <div className="container-x py-8">
+    <div className="container-x py-6 sm:py-8">
+      <TrackView event="listing_view" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <nav aria-label="Breadcrumb" className="text-sm text-muted"><Link href="/shop" className="hover:text-accent">Shop</Link> / <span aria-current="page">{cat.name}</span></nav>
       <h1 className="mt-2 text-2xl font-extrabold">{cat.name}</h1>

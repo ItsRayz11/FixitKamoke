@@ -1,7 +1,8 @@
 import { requireAdmin } from "@/lib/auth/session";
 import { getStore } from "@/lib/settings";
 import { KeepForm } from "@/components/admin/keep-form";
-import { Banner, Field, inputCls, Submit } from "@/components/admin/ui";
+import { Banner, Card, Field, inputCls, Submit } from "@/components/admin/ui";
+import { site } from "@/config/site";
 import { saveStoreAction } from "../settings-actions";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,15 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
       <h1 className="text-2xl font-extrabold">Store settings</h1>
       <p className="mt-1 text-sm text-muted">Leave a field empty if it is not confirmed yet. The storefront shows “to be confirmed” instead of guessing.</p>
       <div className="mt-4"><Banner ok={sp.ok} error={sp.error} /></div>
+      <div className="mb-6">
+        <Card title="Website address (domain)" id="domain">
+          <p className="mt-2 text-sm">Right now the shop believes its address is <code className="break-all rounded bg-canvas px-1.5 py-0.5">{site.baseUrl}</code>.</p>
+          {/localhost|127\.0\.0\.1/.test(site.baseUrl)
+            ? <p role="alert" className="mt-2 rounded-[var(--radius-sm)] bg-amber-50 p-3 text-sm font-semibold text-warn">That is a local test address. Before launch, set <code>SITE_URL</code> on your host to your real domain (for example https://www.yourshop.pk). Until then, links in emails, the sitemap, Google results and payment return pages point to the wrong place.</p>
+            : <p className="mt-2 text-sm text-ok font-semibold">Looks like a real address.</p>}
+          <p className="mt-2 text-xs text-muted">The domain is set where the site is hosted, not in this form, because it has to match the domain you bought and connected, and changing it by mistake would break every link. To change it, update <code>SITE_URL</code> in your host&apos;s settings and redeploy.</p>
+        </Card>
+      </div>
       <KeepForm action={saveStoreAction} className="space-y-8">
         <fieldset className="space-y-4"><legend className="text-lg font-bold">Contact and location</legend>
           {t("whatsappNumber", "WhatsApp number", "Digits with country code, e.g. 923001234567.")}
@@ -36,9 +46,12 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
           <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name="bankTransferEnabled" defaultChecked={s.bankTransferEnabled} className="h-5 w-5" /> Bank transfer</label>
           <p className="text-xs text-muted">Online payment gateways are listed on the Payments page. None can be switched on until it is genuinely connected.</p>
         </fieldset>
-        <fieldset className="space-y-4"><legend className="text-lg font-bold">Bank transfer details</legend>
+        <fieldset className="space-y-4"><legend className="text-lg font-bold">Bank transfer and wallet details</legend>
           <p className="text-sm text-muted">Shown to customers who choose bank transfer. Leave empty to share details privately on WhatsApp instead.</p>
           {t("bankName", "Bank name")}{t("bankAccountTitle", "Account title")}{t("bankAccountNumber", "Account number / IBAN")}
+          <Field label="Other ways to pay by hand" id="paymentInstructions" hint="Optional. For example: Easypaisa 0300 1234567, account title Ali Hassan. Shown with the bank details. These are sent by hand, so staff confirm each payment themselves.">
+            <textarea id="paymentInstructions" name="paymentInstructions" rows={3} defaultValue={s.paymentInstructions ?? ""} className={`${inputCls} h-auto py-2`} />
+          </Field>
         </fieldset>
         <fieldset className="space-y-4"><legend className="text-lg font-bold">Homepage</legend>
           {t("announcement", "Announcement bar", "Only verified offers or delivery notices. Empty hides the bar.")}
