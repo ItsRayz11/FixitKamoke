@@ -49,3 +49,4 @@ next-env.d.ts
 
 # keep the documented template of variable names (it contains no secrets)
 !.env.example
+.neon
