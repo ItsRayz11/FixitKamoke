@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 interface R {
   id: string; reference: string; status: RepairStatus; customer_name: string; phone: string; email: string | null; device_brand: string; device_model: string; issue: string;
   preferred_contact: string; appointment_preference: string | null; estimate_amount: number | null; estimate_is_confirmed: boolean; staff_notes: string | null;
-  customer_message: string | null; created_at: string;
+  customer_message: string | null; created_at: string; approved_at: string | null; approved_amount: number | null; approved_by: string | null;
 }
 
 export default async function RepairAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -36,6 +36,14 @@ export default async function RepairAdmin({ params, searchParams }: { params: Pr
         <p className="mt-3 text-sm">{r.customer_name} · {r.phone} · <a className="text-accent underline" href={`https://wa.me/${r.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>{r.email && <> · {r.email}</>}</p>
         <p className="text-sm text-muted">Prefers: {r.preferred_contact}{r.appointment_preference && <> · Visit: {r.appointment_preference}</>} · Received {fmtDate(r.created_at)}</p>
       </Card>
+
+      <p className="mt-4 rounded-[var(--radius-sm)] border border-line bg-blue-50 p-3 text-sm" data-testid="repair-approval">
+        {r.approved_at && r.approved_amount !== null && r.approved_amount === r.estimate_amount
+          ? <><strong>Approved:</strong> Rs. {r.approved_amount.toLocaleString("en-PK")} by {r.approved_by === "customer" ? "the customer" : r.approved_by} on {fmtDate(r.approved_at)}. You can start the repair.</>
+          : r.estimate_amount === null
+            ? <><strong>Next step:</strong> add a price so the customer can approve it.</>
+            : <><strong>Waiting for approval</strong> of Rs. {r.estimate_amount.toLocaleString("en-PK")}. The customer can approve it on their status page. If they agreed by phone, move the request to Booked in. Work cannot start before then.</>}
+      </p>
 
       <div className="mt-4"><Card title="Update" id="upd">
         <KeepForm action={updateRepairAction} className="mt-3 grid gap-4">

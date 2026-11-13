@@ -21,7 +21,7 @@ afterAll(() => db.close());
 
 describe("payment methods", () => {
   it("both offline methods are on by default", async () => {
-    expect(await getPaymentOptions(db)).toEqual({ cod: true, bankTransfer: true, online: [] });
+    expect(await getPaymentOptions(db)).toEqual({ cod: true, bankTransfer: true, online: [], wallets: [] });
     expect((await order("cod")).orderNumber).toMatch(/^FX-/);
     expect((await order("bank_transfer")).orderNumber).toMatch(/^FX-/);
   });

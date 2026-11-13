@@ -384,3 +384,14 @@ body {
   table.rtable td[data-label]::before { content: attr(data-label); flex: none; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-muted); text-align: left; }
   table.rtable td > * { min-width: 0; }
 }
+
+/* Browsers give <fieldset> an implicit min-width of its content, so one long line (a hint, a textarea, a URL) pushes the whole
+   form wider than the screen. This lets fieldsets and their grid/flex children shrink and long words wrap instead. */
+fieldset { min-width: 0; max-width: 100%; }
+fieldset, legend, label, .hint { overflow-wrap: anywhere; }
+
+/* Photo zoom: a precise pointer (mouse) magnifies under the cursor; touch and reduced-motion users use the Zoom button instead. */
+.zoom-img { transition: transform 0.18s ease-out; will-change: transform; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .zoom-box:hover .zoom-img { transform: scale(1.8); }
+}

@@ -1,3 +1,4 @@
+import { saleNowSql } from "@/lib/domain/sale";
 import { getDb } from "@/lib/db";
 
 export interface Product {
@@ -22,6 +23,9 @@ export interface Product {
   variantLabel: string | null;
   variantHex: string | null;
   variantRequired: boolean;
+  /** Optional search-engine title and description written by the owner. */
+  seoTitle: string | null;
+  seoDescription: string | null;
   /** Set on listing cards when the group was collapsed to one card: the other finishes, in display order. */
   finishes?: { hex: string | null; label: string; inStock: boolean }[];
 }
@@ -37,11 +41,12 @@ interface Row {
   sale_price: number | null; sku: string | null; stock: number; specs: Record<string, string>;
   compatible_devices: string[]; warranty_info: string | null; image_url: string | null; image_alt: string | null;
   variant_group: string | null; variant_label: string | null; variant_hex: string | null; variant_required: boolean;
+  seo_title: string | null; seo_description: string | null;
 }
 
 const SELECT = `select p.id, p.slug, p.name, p.brand, p.category_id, c.name as category_name, c.slug as category_slug,
-  p.description, p.price, p.sale_price, p.sku, p.stock, p.specs, p.compatible_devices, p.warranty_info,
-  p.variant_group, p.variant_label, p.variant_hex, p.variant_required,
+  p.description, p.price, ${saleNowSql()} as sale_price, p.sku, p.stock, p.specs, p.compatible_devices, p.warranty_info,
+  p.variant_group, p.variant_label, p.variant_hex, p.variant_required, p.seo_title, p.seo_description,
   (select url from product_images i where i.product_id = p.id and i.kind = 'photo' order by sort_order limit 1) as image_url,
   (select alt from product_images i where i.product_id = p.id and i.kind = 'photo' order by sort_order limit 1) as image_alt
   from products p left join categories c on c.id = p.category_id`;
@@ -52,6 +57,7 @@ const map = (r: Row): Product => ({
   stock: r.stock, specs: r.specs ?? {}, compatibleDevices: r.compatible_devices ?? [], warrantyInfo: r.warranty_info,
   image: r.image_url ? { url: r.image_url, alt: r.image_alt ?? r.name } : null,
   variantGroup: r.variant_group, variantLabel: r.variant_label, variantHex: r.variant_hex, variantRequired: r.variant_required,
+  seoTitle: r.seo_title, seoDescription: r.seo_description,
 });
 
 export interface ProductFilter {
@@ -80,14 +86,14 @@ export async function listProducts(f: ProductFilter = {}): Promise<Product[]> {
     where.push(`regexp_replace(lower(p.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.sku,'') || ' ' || coalesce(c.name,'') || ' ' || array_to_string(p.compatible_devices,' ')), '[\\s\\-_/]+', '', 'g') like ${p}`);
   }
   if (f.category) where.push(`c.slug = ${add(f.category)}`);
-  if (Number.isFinite(f.min)) where.push(`coalesce(p.sale_price, p.price) >= ${add(f.min)}`);
-  if (Number.isFinite(f.max)) where.push(`coalesce(p.sale_price, p.price) <= ${add(f.max)}`);
+  if (Number.isFinite(f.min)) where.push(`coalesce(${saleNowSql()}, p.price) >= ${add(f.min)}`);
+  if (Number.isFinite(f.max)) where.push(`coalesce(${saleNowSql()}, p.price) <= ${add(f.max)}`);
   if (f.inStock) where.push("p.stock > 0");
 
   const order = {
     newest: "p.created_at desc",
-    price_asc: "coalesce(p.sale_price, p.price) asc",
-    price_desc: "coalesce(p.sale_price, p.price) desc",
+    price_asc: `coalesce(${saleNowSql()}, p.price) asc`,
+    price_desc: `coalesce(${saleNowSql()}, p.price) desc`,
     name: "p.name asc",
   }[f.sort ?? "newest"];
 

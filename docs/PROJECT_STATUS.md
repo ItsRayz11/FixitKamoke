@@ -36,3 +36,7 @@ Easypaisa gateway (needs the merchant guide), A/B testing (traffic too low), mar
 - Production database driver differs from the embedded one: JSON must be passed as an already-serialised string (handled in `src/lib/db/index.ts`). `tests/integration/postgres-driver.test.ts` guards this. Always add new tables with `alter table … enable row level security` (a test enforces it).
 - `NEXT_PUBLIC_*` values are fixed at build time; use `SITE_URL` for the address at run time.
 - Playwright gives each test a fresh browser; sign in inside each test. The dev suite shares one server, so specs are order-aware (`a0-setup` first, `zz-*` last).
+
+## Final upgrade pass (2026-11-13)
+Read [../FINAL_AUDIT.md](../FINAL_AUDIT.md) first. Added: COD advance, wallet transfers, payment-method cards, discount engine (sale windows, richer coupons), courier and tracking, refunds and COD balance collection, shipping zone rules, email overview with a real test send, customer approval of repair prices, a regrouped admin with a tabbed product editor and a real-data dashboard, storefront Quick View, photo zoom and homepage sections. Migrations 011 to 016 (reviewed in [MIGRATION_REVIEW_011_016.md](MIGRATION_REVIEW_011_016.md)) are **not yet applied to production**.
+Rule for anyone running tests: the browser-test config forces an empty `DATABASE_URL` and the demo seed refuses to run if one is set. Never remove either guard.

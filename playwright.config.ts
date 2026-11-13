@@ -21,7 +21,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { RATE_LIMIT_MULTIPLIER: "100", NEXT_PUBLIC_DEMO_MODE: "1", FIXIT_PGLITE_DIR: "memory://", NEXT_PUBLIC_WHATSAPP_NUMBER: "920000000000", ADMIN_SETUP_TOKEN: "e2e-setup-token-0123456789", TWO_FACTOR_KEY: "e2e-two-factor-key-0123456789-abcdefghij",
+    // DATABASE_URL is forced empty so the dev server can NEVER pick up a real database from .env.local; tests use a throwaway in-memory one.
+    env: { DATABASE_URL: "", DATABASE_URL_UNPOOLED: "", RATE_LIMIT_MULTIPLIER: "100", NEXT_PUBLIC_DEMO_MODE: "1", FIXIT_PGLITE_DIR: "memory://", NEXT_PUBLIC_WHATSAPP_NUMBER: "920000000000", ADMIN_SETUP_TOKEN: "e2e-setup-token-0123456789", TWO_FACTOR_KEY: "e2e-two-factor-key-0123456789-abcdefghij",
       JAZZCASH_MERCHANT_ID: "MC-E2E", JAZZCASH_PASSWORD: "e2e-password", JAZZCASH_INTEGRITY_SALT: "e2e-integrity-salt-123456",
       CLOUDINARY_CLOUD_NAME: "e2e-cloud", CLOUDINARY_API_KEY: "123456789", CLOUDINARY_API_SECRET: "e2e-cloudinary-secret" },
   },

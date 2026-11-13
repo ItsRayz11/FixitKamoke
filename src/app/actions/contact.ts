@@ -42,6 +42,9 @@ export async function sendContact(input: unknown): Promise<ContactResult> {
   await db.tx(async (q) => {
     const r = await q.query<{ id: string }>("insert into contact_messages(name, phone, email, message) values ($1,$2,$3,$4) returning id", [d.name, phone, d.email ?? null, d.message]);
     await queueStaffAlert(q, "message", r[0].id.slice(0, 8).toUpperCase(), `From ${d.name.slice(0, 40)}: ${d.message.slice(0, 100)}`);
+    if (d.email) {
+      await q.query("insert into notification_outbox(kind, recipient, payload, dedupe_key) values ('contact_received',$1,$2,$3) on conflict (dedupe_key) do nothing", [d.email, JSON.stringify({ name: d.name }), `contact_received:${r[0].id}`]);
+    }
   });
   sendQueuedEmailSoon();
   return { ok: true };

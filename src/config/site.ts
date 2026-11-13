@@ -8,13 +8,20 @@ const env = (k: string) => {
   return v ? v : null;
 };
 
+function vercelUrl(): string | null {
+  const host = process.env.VERCEL_ENV === "production" ? env("VERCEL_PROJECT_PRODUCTION_URL") : process.env.VERCEL_ENV === "preview" ? env("VERCEL_URL") : null;
+  return host ? `https://${host.replace(/^https?:\/\//, "")}` : null;
+}
+
 export const site = {
   name: "Fixit",
   tagline: "Mobile repair and accessories in Kamoki",
   founder: "Ali Hassan",
   currency: "PKR",
   // SITE_URL is read at run time; NEXT_PUBLIC_SITE_URL is baked in at build time. Prefer SITE_URL.
-  baseUrl: (env("SITE_URL") ?? env("NEXT_PUBLIC_SITE_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
+  // Fallbacks on Vercel, so links, emails and payment callbacks never point at localhost when SITE_URL was forgotten:
+  // production uses the project's production domain; a preview uses its own address. Local development still gets localhost.
+  baseUrl: (env("SITE_URL") ?? env("NEXT_PUBLIC_SITE_URL") ?? vercelUrl() ?? "http://localhost:3000").replace(/\/$/, ""),
   /** E.164 digits only, no plus sign, e.g. 923001234567. Owner must supply. */
   whatsappNumber: env("NEXT_PUBLIC_WHATSAPP_NUMBER")?.replace(/\D/g, "") ?? null,
   address: env("NEXT_PUBLIC_SHOP_ADDRESS"),

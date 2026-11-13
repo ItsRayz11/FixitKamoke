@@ -52,3 +52,13 @@ Nothing below can be invented by the developer. Until done, the site shows "to b
 
 ## Verified-in-code launch safety
 Orders cannot be placed without configured delivery zones. Gateways never appear. The dev seed and test helper endpoints return 404 in production. `robots.txt` blocks everything while `NEXT_PUBLIC_DEMO_MODE=1`.
+
+## Added in the final upgrade pass
+| # | Item | Notes |
+|---|---|---|
+| 21 | Decide what to do with the demo products and demo delivery zones visible on the live site | See FINAL_AUDIT.md section 3. |
+| 22 | Back up Neon, then run migrations 011 to 016 | docs/MIGRATION_REVIEW_011_016.md |
+| 23 | `SITE_URL`, `ADMIN_SETUP_TOKEN`, `TWO_FACTOR_KEY` in Vercel Production | Then redeploy and create the owner at /admin/setup. |
+| 24 | Resend setup and a successful "Send test email" | Admin > Email shows "Connected" only after one succeeds. |
+| 25 | Bank and wallet numbers; COD advance rule | Admin > Payments. |
+| 26 | Staff briefing | Repairs need customer approval before work; non-COD orders must be marked paid before confirming; refunds are manager or owner only. |

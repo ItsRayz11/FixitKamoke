@@ -73,8 +73,11 @@ describe("email outbox", () => {
     expect(kinds).toEqual(["order_cancelled", "order_confirmed", "order_received", "repair_received"]);
     const sent: string[] = [];
     await processOutbox(db, ctx, async (m) => { sent.push(m.subject); });
-    expect(sent).toHaveLength(4);
+    // The order was cancelled before anything went out, so its "received" and "confirmed" emails are no longer true and are dropped.
+    expect(sent).toHaveLength(2);
     expect(sent.some((s) => s.startsWith("We received your repair request RP-"))).toBe(true);
+    expect(sent.some((s) => s.includes("was cancelled"))).toBe(true);
+    expect(sent.some((s) => s.includes("is confirmed"))).toBe(false);
   });
 
   it("does not queue email when the customer gave none", async () => {

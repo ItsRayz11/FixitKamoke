@@ -24,11 +24,14 @@ test("an order with an email is queued, the order page still succeeds, and email
 
   await ensureOwnerLogin(page);
   await page.goto("/admin/email");
-  await expect(page.getByText("Email is not configured. Customers are not being emailed.")).toBeVisible();
+  await expect(page.getByTestId("email-connection")).toHaveText("Setup required"); // never "Connected" without a proven send
   await expect(page.getByText("q***@example.com").first()).toBeVisible(); // recipients are masked
   await expect(page.getByText("order received").first()).toBeVisible();
-  await page.getByRole("button", { name: "Send queued emails now" }).click();
-  await expect(page.getByText("Email is not configured, so nothing was sent.")).toBeVisible();
+  await page.getByRole("button", { name: "Send waiting emails" }).click();
+  await expect(page.getByText("Email is not set up, so nothing was sent.")).toBeVisible();
+  await page.getByRole("button", { name: "Send test email" }).click();
+  await expect(page.getByText(/Test failed: Email is not set up/)).toBeVisible();
+  await expect(page.getByTestId("email-connection")).toHaveText("Setup required");
   await expect(page.getByRole("cell", { name: "pending" }).first()).toBeVisible(); // still queued, not faked as sent
 });
 

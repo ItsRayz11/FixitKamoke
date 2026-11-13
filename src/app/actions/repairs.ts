@@ -6,7 +6,7 @@ import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
-import { createRepairInquiry, findRepairByPhone, RepairError, type RepairView } from "@/lib/repairs/repairs";
+import { createRepairInquiry, findRepairByPhone, respondToEstimate, RepairError, type RepairView } from "@/lib/repairs/repairs";
 
 const ip = async () => clientIp((await headers()).get.bind(await headers()));
 
@@ -36,4 +36,19 @@ export async function trackRepair(reference: string, phone: string): Promise<{ r
   if (!rateLimit(`repair-track:${await ip()}`, 10, 10 * 60_000)) return { repair: null, error: "Too many attempts. Please wait a few minutes." };
   if (typeof reference !== "string" || typeof phone !== "string" || reference.length > 30 || phone.length > 30) return { repair: null };
   return { repair: await findRepairByPhone(await getDb(), reference, phone) };
+}
+
+/** The customer approves or declines the price on their private status page. */
+export async function answerEstimate(reference: string, token: string, decision: string, seenAmount: number): Promise<{ ok: boolean; message: string }> {
+  if (!rateLimit(`repair-answer:${await ip()}`, 10, 10 * 60_000)) return { ok: false, message: "Too many attempts. Please wait a few minutes." };
+  if (typeof reference !== "string" || typeof token !== "string" || (decision !== "approve" && decision !== "decline") || !Number.isSafeInteger(seenAmount)) return { ok: false, message: "Please check the details and try again." };
+  try {
+    await respondToEstimate(await getDb(), reference, token, decision, seenAmount);
+    sendQueuedEmailSoon();
+    return { ok: true, message: decision === "approve" ? "Thank you. We have your approval and will start the repair." : "Understood. The request has been cancelled." };
+  } catch (e) {
+    if (e instanceof RepairError) return { ok: false, message: e.message };
+    console.error("answerEstimate failed", e instanceof Error ? e.message : e);
+    return { ok: false, message: "Something went wrong. Please try again or message us." };
+  }
 }

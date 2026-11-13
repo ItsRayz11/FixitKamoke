@@ -30,11 +30,12 @@ test("the owner starts testing a gateway; customers still cannot see it", async 
   await request.post("/api/dev/seed");
   await ensureOwnerLogin(page);
   await page.goto("/admin/payments");
-  const card = page.locator("li", { hasText: "JazzCash (wallet and card)" });
-  await expect(card).toContainText("Off");
+  const card = page.getByTestId("method-gw-jazzcash");
+  await expect(card.getByTestId("status-gw-jazzcash")).toHaveText("Off");
   await expect(card).toContainText("/api/pay/jazzcash/return");
+  await card.getByText("Configure").click();
   await expect(card.getByRole("button", { name: /Go live/ })).toHaveCount(0); // cannot skip the test
-  await card.getByRole("button", { name: "Start testing (staff only)" }).click();
+  await card.getByRole("button", { name: "Start test" }).click();
   await expect(page.getByText(/is in testing: only signed-in staff/)).toBeVisible();
 
   const customer = await (await browser.newContext({ baseURL: BASE })).newPage();
@@ -116,11 +117,13 @@ test("forged, altered and wrong-amount results change nothing; the genuine one m
 test("after a verified payment the owner can go live, and customers then see it", async ({ page, browser }) => {
   await ensureOwnerLogin(page);
   await page.goto("/admin/payments");
+  await page.getByText("Diagnostics and logs").click();
   await expect(page.getByText("valid").first()).toBeVisible();
   await expect(page.getByText("REFUSED").first()).toBeVisible(); // the forged attempts are on record
-  const card = page.locator("li", { hasText: "JazzCash (wallet and card)" });
-  await expect(card).toContainText("Test passed: ready to go live");
-  await card.getByRole("button", { name: "Go live for customers" }).click();
+  const card = page.getByTestId("method-gw-jazzcash");
+  await expect(card).toContainText("Test payment confirmed by the provider: yes");
+  await card.getByText("Configure").click();
+  await card.getByRole("button", { name: "Go live" }).click();
   await expect(page.getByText(/is now live for customers/)).toBeVisible();
 
   const customer = await (await browser.newContext({ baseURL: BASE })).newPage();
@@ -157,6 +160,6 @@ test("a customer who paid by transfer sends the transaction ID; staff see it and
   await ensureOwnerLogin(page);
   await page.goto(`/admin/orders?q=${number}`);
   await page.getByRole("link", { name: number }).click();
-  await expect(page.getByText("TID-4455-6677")).toBeVisible();
+  await expect(page.getByText("TID-4455-6677", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Payment status")).toHaveValue("pending");
 });

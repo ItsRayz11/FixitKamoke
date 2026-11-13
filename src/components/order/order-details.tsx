@@ -20,6 +20,15 @@ export function OrderDetails({ order }: { order: OrderView }) {
         <div className="flex justify-between"><dt>Delivery</dt><dd>{order.shippingStatus === "needs_confirmation" ? "To be confirmed by us" : order.shippingFee === 0 ? "Free" : formatPKR(order.shippingFee)}</dd></div>
         <div className="flex justify-between text-base font-bold"><dt>Total</dt><dd data-testid="order-total">{formatPKR(order.total)}</dd></div>
       </dl>
+      {order.advanceRequired > 0 && (
+        <dl className="mt-3 space-y-1 rounded-[var(--radius-sm)] bg-canvas p-3 text-sm" aria-label="Advance and balance">
+          <div className="flex justify-between gap-4"><dt>Advance {order.advancePaid >= order.advanceRequired ? "received" : "to pay now"}</dt><dd className="font-bold" data-testid="advance-amount">{formatPKR(order.advancePaid >= order.advanceRequired ? order.advancePaid : order.advanceRequired)}</dd></div>
+          <div className="flex justify-between gap-4"><dt>Pay on delivery</dt><dd className="font-bold" data-testid="balance-amount">{formatPKR(order.total - (order.advancePaid >= order.advanceRequired ? order.advancePaid : order.advanceRequired))}</dd></div>
+        </dl>
+      )}
+      {order.carrier && (
+        <p className="mt-3 text-sm" data-testid="tracking-info"><strong>Courier:</strong> {order.carrier}{order.trackingNumber && <> · <strong>Tracking number:</strong> <span className="break-all font-mono">{order.trackingNumber}</span></>}</p>
+      )}
       <p className="mt-3 text-sm text-muted">Payment: {paymentLabel(order.paymentMethod, order.paymentProvider)}{order.paymentMethod === "online" ? (order.paymentStatus === "paid" ? ", paid" : ", awaiting payment") : ""} · Deliver to: {order.city}</p>
       <ol className="mt-4 space-y-1 text-sm">
         {order.history.map((h, i) => (

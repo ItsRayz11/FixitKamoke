@@ -11,8 +11,8 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
   await requireAdmin("manager");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().slice(0, 80);
-  const rows = await (await getDb()).query<{ id: string; name: string; price: number; sale_price: number | null; stock: number; published: boolean; sku: string | null; variant_label: string | null }>(
-    `select id, name, price, sale_price, stock, published, sku, variant_label from products where ($1 = '' or name ilike '%' || $1 || '%' or variant_label ilike '%' || $1 || '%' or sku ilike '%' || $1 || '%') order by created_at desc limit 200`, [q]);
+  const rows = await (await getDb()).query<{ id: string; name: string; price: number; sale_price: number | null; stock: number; published: boolean; archived: boolean; sku: string | null; variant_label: string | null }>(
+    `select id, name, price, sale_price, stock, published, archived, sku, variant_label from products where ($1 = '' or name ilike '%' || $1 || '%' or variant_label ilike '%' || $1 || '%' or sku ilike '%' || $1 || '%') order by created_at desc limit 200`, [q]);
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -32,7 +32,7 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
                 <td className={td}>{p.sku ?? "—"}</td>
                 <td className={td}>{formatPKR(p.sale_price ?? p.price)}</td>
                 <td className={td}>{p.stock}</td>
-                <td className={td}>{p.published ? "Published" : "Draft"}</td>
+                <td className={td}>{p.archived ? "Archived" : p.published ? "Active" : "Draft"}</td>
               </tr>
             ))}
           </tbody>

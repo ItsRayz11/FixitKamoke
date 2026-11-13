@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCartView } from "@/components/cart/use-cart-view";
-import { getCheckoutPrefill, getPaymentChoices, getShippingView, placeOrder, type CheckoutPrefill, type ShippingView } from "@/app/actions/checkout";
+import { getAdvanceView, getCheckoutPrefill, previewCoupon, type CouponPreview, getPaymentChoices, getShippingView, placeOrder, type CheckoutPrefill, type ShippingView } from "@/app/actions/checkout";
 import type { PaymentOptions } from "@/lib/payments";
 import { formatPKR } from "@/lib/domain/money";
 import { track } from "@/lib/track";
@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const [city, setCity] = useState("");
   const [ship, setShip] = useState<ShippingView | null>(null);
   const [payment, setPayment] = useState<string>("cod"); // "cod", "bank_transfer" or "online:<gateway>"
-  const [methods, setMethods] = useState<PaymentOptions>({ cod: true, bankTransfer: true, online: [] });
+  const [methods, setMethods] = useState<PaymentOptions>({ cod: true, bankTransfer: true, online: [], wallets: [] });
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState<{ message: string; fields?: Record<string, string> } | null>(null);
   const [pending, start] = useTransition();
@@ -64,6 +64,26 @@ export default function CheckoutPage() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [city, subtotal]);
   const shipNow = city.trim().length < 2 ? null : ship;
+  const [couponText, setCouponText] = useState("");
+  const [couponState, setCouponState] = useState<{ key: string; result: CouponPreview } | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
+  // A preview only counts while the cart, city and code are the same as when it was checked.
+  const couponKey = JSON.stringify([cart.lines, city, couponText]);
+  const coupon = couponState?.key === couponKey ? couponState.result : null;
+  async function applyCoupon() {
+    const key = couponKey;
+    setCouponBusy(true);
+    try { setCouponState({ key, result: await previewCoupon(couponText, cart.lines, city) }); } catch { setCouponState({ key, result: { ok: false, message: "Could not check the coupon. Please try again." } }); } finally { setCouponBusy(false); }
+  }
+  const saving = coupon?.ok ? coupon.discount : 0;
+  const [adv, setAdv] = useState<{ advance: number; balance: number } | null>(null);
+  const previewTotal = Math.max(0, subtotal + (shipNow?.status === "quoted" ? shipNow.fee : 0) - saving);
+  useEffect(() => {
+    let cancelled = false;
+    getAdvanceView(previewTotal, city).then((a) => !cancelled && setAdv(a)).catch(() => !cancelled && setAdv(null));
+    return () => { cancelled = true; };
+  }, [previewTotal, city]);
+  const advanceNow = payment === "cod" && adv && adv.advance > 0 && previewTotal > 0 ? adv : null;
 
   const problems = view?.lines.some((l) => l.problem) || (view?.missing.length ?? 0) > 0;
   const fee = shipNow?.status === "quoted" ? shipNow.fee : 0;
@@ -81,7 +101,7 @@ export default function CheckoutPage() {
       const r = await placeOrder({
         idempotencyKey: idem.current,
         customerName: s("customerName"), phone: s("phone"), email: s("email"), city: s("city"), area: s("area"),
-        address: s("address"), notes: s("notes"), paymentMethod: payment.startsWith("online:") ? "online" : payment, paymentProvider: payment.startsWith("online:") ? payment.slice(7) : undefined, couponCode: s("couponCode"),
+        address: s("address"), notes: s("notes"), paymentMethod: payment.startsWith("online:") ? "online" : payment, paymentProvider: payment.startsWith("online:") ? payment.slice(7) : undefined, couponCode: couponText.trim() || undefined,
         items: cart.lines,
       });
       if (r.ok) {
@@ -131,11 +151,14 @@ export default function CheckoutPage() {
           <div><label htmlFor="area" className="font-semibold">Area / locality <span className="font-normal text-muted">(optional)</span></label><input id="area" name="area" className={field} /></div>
           <div><label htmlFor="address" className="font-semibold">Complete delivery address</label><textarea id="address" name="address" required rows={3} autoComplete="street-address" className={`${field} h-auto py-2`} />{err("address")}</div>
           <div><label htmlFor="notes" className="font-semibold">Order notes <span className="font-normal text-muted">(optional)</span></label><textarea id="notes" name="notes" rows={2} className={`${field} h-auto py-2`} /></div>
-          <div><label htmlFor="couponCode" className="font-semibold">Coupon code <span className="font-normal text-muted">(optional)</span></label><input id="couponCode" name="couponCode" className={field} autoCapitalize="characters" /></div>
+          <div><label htmlFor="couponCode" className="font-semibold">Coupon code <span className="font-normal text-muted">(optional)</span></label>
+            <div className="flex gap-2"><input id="couponCode" name="couponCode" value={couponText} onChange={(e) => setCouponText(e.target.value)} className={`${field} min-w-0 flex-1`} autoCapitalize="characters" />
+              <button type="button" onClick={applyCoupon} disabled={couponBusy || couponText.trim().length < 3 || !cart.lines.length} className="btn btn-ti mt-1 !min-h-12 shrink-0">{couponBusy ? "Checking…" : "Apply"}</button></div>
+            {coupon && (coupon.ok ? <p role="status" className="mt-1 text-sm font-semibold text-ok">{coupon.code} applied: you save {formatPKR(coupon.discount)}.</p> : <p role="alert" className="mt-1 text-sm text-danger">{coupon.message}</p>)}</div>
 
           <fieldset>
             <legend className="font-semibold">Payment method</legend>
-            {methods.cod && <label className="mt-2 flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "cod"} onChange={() => setPayment("cod")} className="h-5 w-5" /> Cash on delivery</label>}
+            {methods.cod && <label className="mt-2 flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "cod"} onChange={() => setPayment("cod")} className="h-5 w-5" /> <span className="min-w-0">Cash on delivery{adv && adv.advance > 0 && <span className="block text-xs text-muted">Part is paid in advance, the rest on delivery</span>}</span></label>}
             {methods.bankTransfer && <label className="flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === "bank_transfer"} onChange={() => setPayment("bank_transfer")} className="h-5 w-5" /> Bank transfer <span className="text-xs text-muted">(we will message you the account details)</span></label>}
             {methods.online.map((g) => (
               <label key={g} className={`flex min-h-11 items-center gap-3 ${onlineOk ? "" : "opacity-60"}`}>
@@ -143,7 +166,8 @@ export default function CheckoutPage() {
               </label>
             ))}
             {methods.online.length > 0 && <p className="text-xs text-muted">{onlineOk ? ONLINE_HINT : "Online payment becomes available once your city is entered and the delivery fee is confirmed."}</p>}
-            {!methods.cod && !methods.bankTransfer && methods.online.length === 0 && <p role="alert" className="text-sm text-danger">No payment method is available right now. Please contact us.</p>}
+            {methods.wallets.map((w) => <label key={w} className="flex min-h-11 items-center gap-3"><input type="radio" name="pay" checked={payment === w} onChange={() => setPayment(w)} className="h-5 w-5" /> {w === "jazzcash_manual" ? "JazzCash transfer" : "Easypaisa transfer"} <span className="text-xs text-muted">(details shown after you order)</span></label>)}
+            {!methods.cod && !methods.bankTransfer && methods.wallets.length === 0 && methods.online.length === 0 && <p role="alert" className="text-sm text-danger">No payment method is available right now. Please contact us.</p>}
             {codBlocked && payment === "cod" && <p role="alert" className="text-sm text-danger">Cash on delivery is not available for this city. Please choose bank transfer.</p>}
           </fieldset>
 
@@ -162,8 +186,19 @@ export default function CheckoutPage() {
             <div className="flex justify-between"><dt>Delivery</dt><dd data-testid="ship-fee">
               {!shipNow ? "Enter your city" : shipNow.status === "quoted" ? (fee === 0 ? "Free" : formatPKR(fee)) : shipNow.status === "needs_confirmation" ? "To be confirmed" : "Unavailable"}
             </dd></div>
-            <div className="flex justify-between border-t border-line pt-2 text-base font-bold"><dt>Total</dt><dd data-testid="order-total">{formatPKR(subtotal + fee)}</dd></div>
+            {saving > 0 && <div className="flex justify-between text-ok"><dt>Coupon savings</dt><dd data-testid="coupon-saving">−{formatPKR(saving)}</dd></div>}
+            <div className="flex justify-between border-t border-line pt-2 text-base font-bold"><dt>Total</dt><dd data-testid="order-total">{formatPKR(Math.max(0, subtotal + fee - saving))}</dd></div>
           </dl>
+          {advanceNow && (
+            <div className="mt-3 rounded-[var(--radius-sm)] border border-line bg-canvas p-3 text-sm" data-testid="advance-box">
+              <p className="font-semibold">Cash on delivery with advance</p>
+              <dl className="mt-1 space-y-1">
+                <div className="flex justify-between gap-3"><dt>Pay now (advance)</dt><dd className="font-bold" data-testid="advance-now">{formatPKR(advanceNow.advance)}</dd></div>
+                <div className="flex justify-between gap-3"><dt>Pay on delivery</dt><dd className="font-bold" data-testid="advance-later">{formatPKR(advanceNow.balance)}</dd></div>
+              </dl>
+              <p className="mt-2 text-xs text-muted">After you place the order we show how to send the advance. We confirm the order once it has arrived. The exact amounts are shown on your order page.</p>
+            </div>
+          )}
           {shipNow?.status === "needs_confirmation" && <p className="mt-3 text-sm text-warn">We could not calculate delivery for this city automatically. We will contact you to confirm the delivery fee before your order is confirmed.</p>}
           {shipNow?.status === "not_serviceable" && <p role="alert" className="mt-3 text-sm text-danger">We do not deliver to this city yet.</p>}
           {shipNow?.status === "unconfigured" && <p role="alert" className="mt-3 text-sm text-danger">Delivery is not set up yet, so orders cannot be placed.</p>}
@@ -171,7 +206,7 @@ export default function CheckoutPage() {
           <p className="mt-2 text-xs text-muted">Final prices and stock are confirmed by the server when you place the order.</p>
           <div className="purchase-bar group-has-[input:not([type=checkbox]):not([type=radio]):focus,textarea:focus,select:focus]/form:hidden lg:static lg:mt-4 lg:p-0 lg:!block">
             <div className="glass-panel mx-auto flex max-w-xl items-center gap-3 rounded-[var(--radius-lg)] p-2.5 pl-4 lg:block lg:!border-0 lg:!bg-transparent lg:!p-0 lg:!shadow-none lg:![backdrop-filter:none]">
-              <p className="min-w-0 flex-1 leading-tight lg:hidden"><span className="block text-xs text-muted">Total to pay</span><span className="text-base font-extrabold">{formatPKR(subtotal + fee)}{shipNow?.status === "needs_confirmation" ? "+" : ""}</span></p>
+              <p className="min-w-0 flex-1 leading-tight lg:hidden"><span className="block text-xs text-muted">Total to pay</span><span className="text-base font-extrabold">{formatPKR(Math.max(0, subtotal + fee - saving))}{shipNow?.status === "needs_confirmation" ? "+" : ""}</span></p>
               <button type="submit" disabled={pending || !agree || !!problems || blocked || onlineBlocked || !!(codBlocked && payment === "cod") || !view?.lines.length}
                 className="btn btn-primary !min-h-12 min-w-36 lg:w-full">
                 {pending ? (payment.startsWith("online:") ? "Taking you to payment…" : "Placing order…") : payment.startsWith("online:") ? "Place order and pay" : "Place order"}

@@ -10,10 +10,14 @@ test("a product with several photos shows a gallery that switches photos accessi
   await ensureOwnerLogin(page);
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Gallery Test Item");
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("500");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("5");
+  await page.getByRole("tab", { name: "Media" }).click();
   await page.getByLabel("Image URLs").fill("https://img.test/front.png|Front view\nhttps://img.test/back.png|Back view\nhttps://img.test/side.png|Side view");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
 
@@ -39,10 +43,14 @@ test("a product with one photo shows no thumbnail strip", async ({ page }) => {
   await ensureOwnerLogin(page);
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Single Photo Item");
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("300");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("2");
+  await page.getByRole("tab", { name: "Media" }).click();
   await page.getByLabel("Image URLs").fill("https://img.test/only.png|Only photo");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
   await page.goto("/product/single-photo-item");

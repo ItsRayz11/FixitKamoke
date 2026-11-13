@@ -16,7 +16,9 @@ export default async function ShippingAdmin({ searchParams }: { searchParams: Pr
   return (
     <div className="max-w-4xl">
       <h1 className="text-2xl font-extrabold">Delivery settings</h1>
-      <p className="mt-1 text-sm text-muted">Customers see these fees at checkout. Nothing is assumed: a city with no zone follows the rule at the bottom. Clear a zone’s name to delete it.</p>
+      <p className="mt-1 text-sm text-muted">Fees and delivery times customers see at checkout.</p>
+      {cfg && <p className="mt-2 rounded-[var(--radius-sm)] border border-line bg-blue-50 p-3 text-sm" data-testid="fallback"><strong>Other cities:</strong> {cfg.unlistedCity === "not_serviceable" ? "we do not deliver there." : "we accept the order and agree the delivery fee with the customer first."}</p>}
+      <details className="mt-2 text-sm text-muted"><summary className="cursor-pointer font-semibold text-ink">Help</summary><p className="mt-2">Each city can be in one active zone only. Clear a zone&apos;s name to delete it; its cities then follow the &ldquo;other cities&rdquo; rule. Switching a zone off keeps it saved. No courier system is connected, so staff enter courier and tracking details on each order.</p></details>
       {!cfg && <p role="alert" className="mt-3 rounded-[var(--radius-sm)] bg-amber-50 p-3 text-sm text-warn">No delivery zones are configured, so customers cannot place orders yet.</p>}
       <div className="mt-4"><Banner ok={sp.ok} error={sp.error} /></div>
       <KeepForm action={saveShippingAction} className="space-y-4">
@@ -24,7 +26,7 @@ export default async function ShippingAdmin({ searchParams }: { searchParams: Pr
         {Array.from({ length: rows }, (_, i) => {
           const z = zones[i];
           return (
-            <fieldset key={i} className="grid gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-4 sm:grid-cols-2">
+            <fieldset key={i} className={`grid gap-3 rounded-[var(--radius-md)] border border-line bg-surface p-4 sm:grid-cols-2 ${z?.active === false ? "opacity-70" : ""}`}>
               <legend className="px-1 text-sm font-bold">{z ? `Zone ${i + 1}` : "New zone (optional)"}</legend>
               <input type="hidden" name={`z${i}_id`} value={z?.id ?? ""} />
               <div><label htmlFor={`z${i}_label`} className="text-sm font-semibold">Zone name</label><input id={`z${i}_label`} name={`z${i}_label`} defaultValue={z?.label ?? ""} className={inputCls} /></div>
@@ -35,7 +37,11 @@ export default async function ShippingAdmin({ searchParams }: { searchParams: Pr
                 <div><label htmlFor={`z${i}_etaMin`} className="text-sm font-semibold">Days from</label><input id={`z${i}_etaMin`} name={`z${i}_etaMin`} inputMode="numeric" defaultValue={z?.etaDays?.[0] ?? ""} className={inputCls} /></div>
                 <div><label htmlFor={`z${i}_etaMax`} className="text-sm font-semibold">Days to</label><input id={`z${i}_etaMax`} name={`z${i}_etaMax`} inputMode="numeric" defaultValue={z?.etaDays?.[1] ?? ""} className={inputCls} /></div>
               </div>
-              <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name={`z${i}_cod`} defaultChecked={z?.codAvailable ?? true} className="h-5 w-5" /> Cash on delivery available</label>
+              <div className="grid gap-1 sm:col-span-2 sm:grid-cols-3">
+                <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name={`z${i}_active`} defaultChecked={z?.active !== false} className="h-5 w-5" /> Zone is active</label>
+                <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name={`z${i}_cod`} defaultChecked={z?.codAvailable ?? true} className="h-5 w-5" /> Cash on delivery</label>
+                <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" name={`z${i}_adv`} defaultChecked={z?.advance !== false} className="h-5 w-5" /> COD advance applies</label>
+              </div>
             </fieldset>
           );
         })}

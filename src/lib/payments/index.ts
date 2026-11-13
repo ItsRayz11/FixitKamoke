@@ -21,6 +21,8 @@ export interface PaymentOptions {
   bankTransfer: boolean;
   /** Gateways a customer may choose right now. */
   online: GatewayId[];
+  /** Wallet transfers sent by hand that are switched on and have a number to send to. */
+  wallets: ("jazzcash_manual" | "easypaisa_manual")[];
 }
 
 export const OFFLINE_LABEL: Record<OfflineMethod, string> = { cod: "Cash on delivery", bank_transfer: "Bank transfer" };
@@ -83,7 +85,7 @@ export async function hasVerifiedPayment(db: Queryable, id: GatewayId): Promise<
 /** Enabled offline methods (both on unless switched off in Store settings) plus the gateways that pass all four conditions. */
 export async function getPaymentOptions(db: Queryable, opts: { env?: NodeJS.ProcessEnv; staff?: boolean } = {}): Promise<PaymentOptions> {
   const env = opts.env ?? process.env;
-  const rows = await db.query<{ value: { codEnabled?: boolean; bankTransferEnabled?: boolean } }>("select value from store_settings where key = 'store'");
+  const rows = await db.query<{ value: { codEnabled?: boolean; bankTransferEnabled?: boolean; jazzcashEnabled?: boolean; jazzcashNumber?: string | null; easypaisaEnabled?: boolean; easypaisaNumber?: string | null } }>("select value from store_settings where key = 'store'");
   const v = rows[0]?.value ?? {};
   const settings = await getGatewaySettings(db);
   const online: GatewayId[] = [];
@@ -93,7 +95,10 @@ export async function getPaymentOptions(db: Queryable, opts: { env?: NodeJS.Proc
     if (mode === "live" && (await hasVerifiedPayment(db, g.id))) online.push(g.id);
     else if (mode === "testing" && opts.staff) online.push(g.id); // staff-only, to make the test payment that proves the gateway works
   }
-  return { cod: v.codEnabled !== false, bankTransfer: v.bankTransferEnabled !== false, online };
+  const wallets: PaymentOptions["wallets"] = [];
+  if (v.jazzcashEnabled === true && v.jazzcashNumber?.trim()) wallets.push("jazzcash_manual");
+  if (v.easypaisaEnabled === true && v.easypaisaNumber?.trim()) wallets.push("easypaisa_manual");
+  return { cod: v.codEnabled !== false, bankTransfer: v.bankTransferEnabled !== false, online, wallets };
 }
 
 export interface GatewayStatus extends Gateway {

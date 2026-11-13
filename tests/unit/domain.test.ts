@@ -85,3 +85,26 @@ describe("rate limiter", () => {
     expect(rateLimit(k, 1, 20)).toBe(true);
   });
 });
+
+describe("promotions (phase 5)", () => {
+  it("free-delivery coupons take off only the delivery fee and respect the minimum", async () => {
+    const { couponDiscount, orderTotals } = await import("@/lib/domain/pricing");
+    const c = { type: "freeship" as const, value: 1, minSubtotal: 1000, maxDiscount: null };
+    expect(couponDiscount(999, c, 300)).toBe(0);
+    expect(couponDiscount(1000, c, 300)).toBe(300);
+    expect(orderTotals([{ unitPrice: 1000, quantity: 1 }], c, 300)).toEqual({ subtotal: 1000, discount: 300, shippingFee: 300, total: 1000 });
+  });
+  it("a coupon limited to a category discounts only the eligible subtotal", async () => {
+    const { couponDiscount } = await import("@/lib/domain/pricing");
+    expect(couponDiscount(1500, { type: "percent", value: 10, minSubtotal: 0, maxDiscount: null }, 0, 1000)).toBe(100);
+    expect(couponDiscount(1500, { type: "fixed", value: 900, minSubtotal: 0, maxDiscount: null }, 0, 400)).toBe(400);
+  });
+  it("percentOff only reports genuine discounts", async () => {
+    const { percentOff } = await import("@/lib/domain/sale");
+    expect(percentOff(3000, 2700)).toBe(10);
+    expect(percentOff(3000, null)).toBeNull();
+    expect(percentOff(3000, 3000)).toBeNull();
+    expect(percentOff(3000, 3500)).toBeNull();
+    expect(percentOff(10000, 9999)).toBeNull(); // rounds to 0%: not advertised
+  });
+});

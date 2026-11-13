@@ -24,10 +24,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const p = await getProductBySlug((await params).slug);
   if (!p) return { title: "Product not found" };
-  const title = p.variantLabel ? `${p.name} — ${p.variantLabel}` : p.name;
+  const title = p.seoTitle?.trim() || (p.variantLabel ? `${p.name} — ${p.variantLabel}` : p.name);
   return {
     title,
-    description: p.description.slice(0, 155) || `${p.name} at Fixit.`,
+    description: p.seoDescription?.trim() || p.description.slice(0, 155) || `${p.name} at Fixit.`,
     alternates: { canonical: `/product/${p.slug}` },
     openGraph: { title, images: p.image ? [p.image.url] : undefined },
   };

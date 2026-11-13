@@ -8,8 +8,15 @@ export interface DashboardStats {
   aov30: number;
   newRepairs: number;
   openMessages: number;
-  /** Active orders paid by transfer or online whose money has not been confirmed. */
+  /** Active orders paid by transfer, wallet or online whose money has not been confirmed. */
   awaitingPayment: number;
+  /** Active cash-on-delivery orders whose advance has not been verified yet. */
+  awaitingAdvance: number;
+  todayOrders: number;
+  /** Confirmed, being prepared or packed: waiting to be sent. */
+  readyToShip: number;
+  /** Orders placed on each of the last 14 days (Pakistan time), oldest first. */
+  ordersByDay: { day: string; count: number }[];
   lowStock: { name: string; stock: number; id: string }[];
   outboxPending: number;
   repeatRate: number | null;
@@ -42,6 +49,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const [r] = await db.query<{ c: number }>("select count(*)::int as c from repair_inquiries where status = 'new'");
   const [msg] = await db.query<{ c: number }>("select count(*)::int as c from contact_messages where not handled");
   const [ap] = await db.query<{ c: number }>("select count(*)::int as c from orders where payment_method <> 'cod' and payment_status in ('unpaid','pending','failed') and status not in ('cancelled','rejected','returned')");
+  const [adv] = await db.query<{ c: number }>("select count(*)::int as c from orders where payment_method = 'cod' and advance_required > advance_paid and status not in ('cancelled','rejected','returned')");
+  const [td] = await db.query<{ c: number }>("select count(*)::int as c from orders where (created_at at time zone 'Asia/Karachi')::date = (now() at time zone 'Asia/Karachi')::date");
+  const [rts] = await db.query<{ c: number }>("select count(*)::int as c from orders where status in ('confirmed','processing','packed')");
+  const byDay = await db.query<{ day: string; c: number }>(`
+    select to_char(d, 'YYYY-MM-DD') as day, coalesce(count(o.id), 0)::int as c
+    from generate_series(((now() at time zone 'Asia/Karachi')::date - 13), (now() at time zone 'Asia/Karachi')::date, interval '1 day') as d
+    left join orders o on (o.created_at at time zone 'Asia/Karachi')::date = d::date
+    group by d order by d`);
   const lowRows = await db.query<{ id: string; name: string; stock: number; variant_label: string | null }>("select id, name, stock, variant_label from products where published and stock <= 3 order by stock, name limit 8");
   const low = lowRows.map((p) => ({ id: p.id, name: displayName(p.name, p.variant_label), stock: p.stock }));
   const [ob] = await db.query<{ c: number }>("select count(*)::int as c from notification_outbox where status = 'pending'");
@@ -54,7 +69,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return {
     pendingOrders: n(o.pending), orders30: c30, revenue30: n(o.rev30),
     aov30: valid ? Math.round(n(o.rev30) / valid) : 0,
-    newRepairs: r?.c ?? 0, openMessages: msg?.c ?? 0, awaitingPayment: ap?.c ?? 0, lowStock: low, outboxPending: ob?.c ?? 0,
+    newRepairs: r?.c ?? 0, openMessages: msg?.c ?? 0, awaitingPayment: ap?.c ?? 0, awaitingAdvance: adv?.c ?? 0, todayOrders: td?.c ?? 0, readyToShip: rts?.c ?? 0,
+    ordersByDay: byDay.map((r) => ({ day: r.day, count: r.c })), lowStock: low, outboxPending: ob?.c ?? 0,
     repeatRate: rep && rep.phones > 0 ? rep.repeaters / rep.phones : null,
     cancelRate: c30 ? n(o.cancelled30) / c30 : null,
     funnel: Object.fromEntries(ev.map((e) => [e.name, e.c])),

@@ -82,9 +82,12 @@ test("the owner configures delivery, a category and a product; a guest buys it; 
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Prod Test Charger");
   await page.getByLabel("Category").selectOption({ label: "Chargers" });
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("1500");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("3");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
 

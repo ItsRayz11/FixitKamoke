@@ -16,6 +16,7 @@ export function ImageUploader({ targetId, kind, enabled, label }: { targetId: st
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<{ text: string; bad?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(false);
 
   if (!enabled) {
     return <p className="text-xs text-muted">Photo upload is not switched on for this server yet (it needs a Cloudinary account). You can paste https links below.</p>;
@@ -57,10 +58,16 @@ export function ImageUploader({ targetId, kind, enabled, label }: { targetId: st
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div
+      className={`flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border-2 border-dashed p-3 transition-colors ${over ? "border-accent bg-blue-50" : "border-line"}`}
+      onDragOver={(e) => { e.preventDefault(); if (!busy) setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const f = [...e.dataTransfer.files]; if (f.length && !busy) void run(f); }}
+    >
       <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" id={`${targetId}-file`} aria-label={label}
         onChange={(e) => { const f = [...(e.target.files ?? [])]; if (f.length) void run(f); }} />
       <button type="button" disabled={busy} onClick={() => input.current?.click()} className="btn btn-ti !min-h-11">{busy ? "Uploading…" : label}</button>
+      {!busy && !status && <span className="text-xs text-muted">or drop files here</span>}
       {status && <p role={status.bad ? "alert" : "status"} className={`text-sm font-semibold ${status.bad ? "text-danger" : "text-ok"}`}>{status.text}</p>}
     </div>
   );

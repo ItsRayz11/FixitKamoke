@@ -4,6 +4,7 @@ import { optimizeImageUrl } from "@/lib/domain/images";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Price } from "@/components/ui/price";
 import { Spotlight } from "@/components/ui/spotlight";
+import { ZoomImage } from "@/components/product/zoom-image";
 import { StockBadge } from "@/components/product/stock-badge";
 import { useCart } from "@/components/cart/cart-store";
 import { CompareButton } from "@/components/product/compare-button";
@@ -145,8 +146,7 @@ export function ProductShowcase({ base, variants, required, specsSlot, afterBuyS
                 if (x0 !== null && x1 !== undefined && Math.abs(x1 - x0) > 48) shifted(x1 < x0 ? 1 : -1);
               }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- owner-supplied remote URL; size reserved by the aspect box to avoid layout shift */}
-              <img key={cur.url} src={optimizeImageUrl(cur.url, 1000)} alt={cur.alt || base.name} width={800} height={800} fetchPriority="high" decoding="async" className="gallery-fade h-full w-full object-contain p-3 sm:p-6" />
+              <ZoomImage url={cur.url} alt={cur.alt} name={base.name} />
             </div>
           </Spotlight>
         )}

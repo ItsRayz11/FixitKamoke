@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { pktDateToInstant } from "@/lib/domain/sale";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
@@ -30,9 +31,13 @@ const schema = z.object({
   description: z.string().trim().max(4000),
   price: int("Price"),
   salePrice: optInt("Sale price"),
+  saleStarts: z.string().trim().max(10),
+  saleEnds: z.string().trim().max(10),
   sku: optText,
   stock: int("Stock"),
-  published: z.boolean(),
+  status: z.enum(["draft", "active", "archived"]),
+  seoTitle: z.string().trim().max(70, "The page title can be at most 70 characters."),
+  seoDescription: z.string().trim().max(160, "The page description can be at most 160 characters."),
   warranty: optText,
   weight: optInt("Weight"),
   specs: z.string().max(4000),
@@ -95,21 +100,27 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   // Echo what the user typed so a rejected save never wipes the form.
   const values: Record<string, string | boolean> = {};
   for (const [k, v] of form.entries()) if (typeof v === "string") values[k] = v;
-  values.published = form.get("published") === "on";
   const fail = (error: string): ProductFormState => ({ error, values });
 
   const id = String(form.get("id") ?? "");
   const parsed = schema.safeParse({
     name: form.get("name"), slug: form.get("slug") ?? "", brand: form.get("brand") ?? "", categoryId: form.get("categoryId") ?? "",
-    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", sku: form.get("sku") ?? "",
-    stock: form.get("stock"), published: form.get("published") === "on", warranty: form.get("warranty") ?? "", weight: form.get("weight") ?? "",
+    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", saleStarts: form.get("saleStarts") ?? "", saleEnds: form.get("saleEnds") ?? "", sku: form.get("sku") ?? "",
+    stock: form.get("stock"), status: form.get("status") ?? (form.get("published") === "on" ? "active" : "draft"), seoTitle: form.get("seoTitle") ?? "", seoDescription: form.get("seoDescription") ?? "", warranty: form.get("warranty") ?? "", weight: form.get("weight") ?? "",
     specs: form.get("specs") ?? "", devices: form.get("devices") ?? "", images: form.get("images") ?? "", spin: form.get("spin") ?? "",
     variantGroup: form.get("variantGroup") ?? "", variantLabel: form.get("variantLabel") ?? "", variantHex: form.get("variantHex") ?? "",
     variantRequired: form.get("variantRequired") === "on",
   });
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const d = parsed.data;
+  const published = d.status === "active";
+  const archived = d.status === "archived";
   if (d.salePrice !== null && d.salePrice >= d.price) return fail("Sale price must be lower than the regular price.");
+  const saleStarts = d.saleStarts ? pktDateToInstant(d.saleStarts, false) : null;
+  const saleEnds = d.saleEnds ? pktDateToInstant(d.saleEnds, true) : null;
+  if ((d.saleStarts && !saleStarts) || (d.saleEnds && !saleEnds)) return fail("Sale dates must be real dates.");
+  if ((saleStarts || saleEnds) && d.salePrice === null) return fail("Enter a sale price, or clear the sale dates.");
+  if (saleStarts && saleEnds && saleEnds <= saleStarts) return fail("The sale must end after it starts.");
   const variantGroup = d.variantGroup ? slugify(d.variantGroup) : null;
   if (d.variantGroup && !variantGroup) return fail("Could not make a finish group name from that text.");
   if (variantGroup && !d.variantLabel) return fail("Give this finish a name (for example Titanium Grey), or clear the finish group.");
@@ -135,15 +146,15 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
         if (!prev[0]) throw new Error("Product not found");
         await q.query(
           `update products set name=$2, slug=$3, brand=$4, category_id=$5, description=$6, price=$7, sale_price=$8, sku=$9, stock=$10, published=$11,
-             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, updated_at=now() where id=$1`,
-          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, d.published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired],
+             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, updated_at=now() where id=$1`,
+          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
         );
-        await audit(admin.email, "product_updated", "product", id, { before: prev[0], after: { price: d.price, sale_price: d.salePrice, stock: d.stock, published: d.published } }, q);
+        await audit(admin.email, "product_updated", "product", id, { before: prev[0], after: { price: d.price, sale_price: d.salePrice, stock: d.stock, published: published } }, q);
       } else {
         const r = await q.query<{ id: string }>(
-          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning id`,
-          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, d.published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired],
+          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required, sale_starts_at, sale_ends_at, seo_title, seo_description, archived)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) returning id`,
+          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
         );
         savedId = r[0].id;
         await audit(admin.email, "product_created", "product", savedId, { name: d.name, price: d.price, stock: d.stock }, q);

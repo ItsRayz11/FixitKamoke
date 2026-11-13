@@ -10,7 +10,7 @@ export default async function AuditAdmin() {
     "select id, actor, action, entity, entity_id, detail, created_at from audit_events order by created_at desc limit 300");
   return (
     <div>
-      <h1 className="text-2xl font-extrabold">Audit log</h1>
+      <h1 className="text-2xl font-extrabold">Activity log</h1>
       <p className="mt-1 text-sm text-muted">The latest 300 sensitive actions. Entries cannot be edited here.</p>
       <div className="mt-4 overflow-x-auto rounded-[var(--radius-md)] border border-line bg-surface">
         <table className="w-full">

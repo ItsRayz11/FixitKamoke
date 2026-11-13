@@ -156,7 +156,7 @@ test("homepage follows the mobile order and shows only real data", async ({ page
   await page.goto("/");
   const headings = await page.getByRole("heading").allTextContents();
   const idx = (t: string) => headings.findIndex((h) => h.includes(t));
-  expect(idx("Phone repairs")).toBe(0);
+  expect(idx("dependable repairs")).toBe(0);
   expect(idx("Shop by category")).toBeGreaterThan(idx("Phone repairs"));
   expect(idx("Available now")).toBeGreaterThan(idx("Shop by category"));
   expect(idx("Repairs, confirmed")).toBeGreaterThan(idx("Available now"));
@@ -165,7 +165,7 @@ test("homepage follows the mobile order and shows only real data", async ({ page
   const heroBg = await page.getByRole("heading", { level: 1 }).evaluate((h) => getComputedStyle(h.closest("section")!).backgroundColor);
   const [r, g, b] = heroBg.match(/\d+/g)!.map(Number);
   expect((r + g + b) / 3).toBeLessThan(60);
-  await expect(page.getByRole("link", { name: "Shop accessories" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Shop now" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Book a repair" }).first()).toBeVisible();
   // Finish families appear once, with real finish dots, not once per colour.
   await expect(page.getByRole("heading", { name: "DEMO Aluminium Phone Stand" })).toHaveCount(1);
@@ -203,7 +203,7 @@ test("admin phone preview frames the storefront and switches widths", async ({ p
   await page.getByRole("button", { name: "320", exact: true }).click();
   await expect(frame).toHaveAttribute("title", /320px/);
   expect(await frame.evaluate((f) => f.getBoundingClientRect().width)).toBe(320);
-  await expect(page.frameLocator("iframe").getByRole("heading", { level: 1 })).toContainText("Phone repairs");
+  await expect(page.frameLocator("iframe").getByRole("heading", { level: 1 })).toContainText("dependable repairs");
   await page.getByLabel(/Compare 320/).check();
   await expect(page.locator("iframe")).toHaveCount(2);
 });
@@ -213,18 +213,23 @@ test("admin can define finishes, and an incomplete finish is rejected with the f
   await page.goto("/admin/products/new");
   const name = `Finish Form Item ${Date.now()}`;
   await page.getByLabel("Product name").fill(name);
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("500");
+  await page.getByRole("tab", { name: "Variants" }).click();
   await page.getByLabel("Finish group").fill("finish-form-item");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Give this finish a name")).toBeVisible();
   await expect(page.getByLabel("Product name")).toHaveValue(name);
+  await page.getByRole("tab", { name: "Variants" }).click();
   await page.getByLabel("Finish name").fill("Graphite");
   await page.getByLabel("Swatch colour").fill("not-a-colour");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Finish colour must look like")).toBeVisible();
   await page.getByLabel("Swatch colour").fill("#33384A");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("3");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
 });

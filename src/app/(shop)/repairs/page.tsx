@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
 import { RepairForm } from "@/components/repairs/repair-form";
+import { RepairSteps } from "@/components/repairs/repair-steps";
 import { TrackView } from "@/components/analytics/track-view";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function RepairsPage() {
       </section>
 
       <TrackView event="repair_start" />
+      <div className="container-x pt-8"><RepairSteps /></div>
       <div className="container-x grid gap-10 py-10 lg:grid-cols-[1fr_340px]">
         <section aria-labelledby="req">
           <h2 id="req" className="text-xl font-bold">Request a repair</h2>

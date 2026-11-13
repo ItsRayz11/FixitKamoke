@@ -57,21 +57,34 @@ export interface RepairView {
   estimateAmount: number | null;
   estimateIsConfirmed: boolean;
   customerMessage: string | null;
+  /** True when the customer may approve (or decline) the price shown, from their status page. */
+  canRespond: boolean;
+  approvedAmount: number | null;
+  approvedAt: string | null;
   history: { status: string; at: string }[];
 }
 
 interface Row {
   id: string; reference: string; status: RepairStatus; device_brand: string; device_model: string; issue: string; created_at: Date | string;
   estimate_amount: number | null; estimate_is_confirmed: boolean; customer_message: string | null; phone: string; tracking_token_hash: string;
+  approved_at: Date | string | null; approved_amount: number | null;
 }
 const eq = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-const COLS = "id, reference, status, device_brand, device_model, issue, created_at, estimate_amount, estimate_is_confirmed, customer_message, phone, tracking_token_hash";
+const COLS = "id, reference, status, device_brand, device_model, issue, created_at, estimate_amount, estimate_is_confirmed, customer_message, phone, tracking_token_hash, approved_at, approved_amount";
+
+/** The customer is being asked for a go-ahead: a price exists and has not been approved at that exact amount yet. */
+function needsApproval(r: Pick<Row, "status" | "estimate_amount" | "approved_amount">): boolean {
+  if (r.estimate_amount === null) return false;
+  if (r.status === "estimate_sent" || r.status === "awaiting_customer") return r.approved_amount !== r.estimate_amount;
+  return r.status === "booked" && r.approved_amount !== r.estimate_amount;
+}
 
 async function view(db: Db, r: Row): Promise<RepairView> {
   const h = await db.query<{ to_status: string; created_at: Date | string }>("select to_status, created_at from repair_status_history where repair_id = $1 order by created_at, id", [r.id]);
   return {
     reference: r.reference, status: r.status, deviceBrand: r.device_brand, deviceModel: r.device_model, issue: r.issue, createdAt: new Date(r.created_at).toISOString(),
     estimateAmount: r.estimate_amount, estimateIsConfirmed: r.estimate_is_confirmed, customerMessage: r.customer_message,
+    canRespond: needsApproval(r), approvedAmount: r.approved_amount, approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : null,
     history: h.map((x) => ({ status: x.to_status, at: new Date(x.created_at).toISOString() })),
   };
 }
@@ -103,8 +116,8 @@ export async function updateRepair(db: Db, id: string, u: RepairUpdate, actor: s
     throw new RepairError("bad_input", "Enter a price in whole rupees.");
   }
   await db.tx(async (q) => {
-    const rows = await q.query<{ reference: string; status: RepairStatus; email: string | null; estimate_amount: number | null }>(
-      "select reference, status, email, estimate_amount from repair_inquiries where id = $1 for update", [id]);
+    const rows = await q.query<{ reference: string; status: RepairStatus; email: string | null; estimate_amount: number | null; approved_at: Date | string | null; approved_amount: number | null }>(
+      "select reference, status, email, estimate_amount, approved_at, approved_amount from repair_inquiries where id = $1 for update", [id]);
     const r = rows[0];
     if (!r) throw new RepairError("not_found", "Repair request not found.");
     const amount = u.estimateAmount === undefined ? r.estimate_amount : u.estimateAmount;
@@ -112,12 +125,23 @@ export async function updateRepair(db: Db, id: string, u: RepairUpdate, actor: s
     if (u.to && u.to !== r.status && !canRepairTransition(r.status, u.to)) {
       throw new RepairError("bad_transition", `A request that is “${r.status.replace(/_/g, " ")}” cannot move to “${u.to.replace(/_/g, " ")}”.`);
     }
+    // Work only starts on a price the customer has agreed to. Moving to "booked" records an approval given by phone or WhatsApp.
+    let approvedAt = r.approved_at; let approvedAmount = r.approved_amount; let approvedBy: string | null | undefined;
+    if (approvedAmount !== null && amount !== approvedAmount) { approvedAt = null; approvedAmount = null; approvedBy = null; } // the price moved: the old approval no longer counts
+    if (u.to === "booked" && approvedAt === null) {
+      if (amount === null) throw new RepairError("bad_input", "Enter the price before booking the repair in.");
+      approvedAt = new Date(); approvedAmount = amount; approvedBy = actor;
+    }
+    if (u.to === "in_repair" && (amount === null || approvedAmount !== amount)) {
+      throw new RepairError("bad_input", "The customer has not approved the current price yet. Ask them to approve it on their status page, or record their approval by moving the request to Booked in.");
+    }
     await q.query(
       // undefined/null leaves a text field alone; an empty string clears it.
       `update repair_inquiries set estimate_amount = $2, estimate_is_confirmed = $3,
          customer_message = case when $4::text is null then customer_message else nullif($4::text, '') end,
-         staff_notes = case when $5::text is null then staff_notes else nullif($5::text, '') end, status = $6, updated_at = now() where id = $1`,
-      [id, amount, amount === null ? false : (u.estimateIsConfirmed ?? false), u.customerMessage ?? null, u.staffNotes ?? null, u.to ?? r.status]);
+         staff_notes = case when $5::text is null then staff_notes else nullif($5::text, '') end, status = $6,
+         approved_at = $7, approved_amount = $8, approved_by = case when $9::text = '' then null when $9::text is null then approved_by else $9::text end, updated_at = now() where id = $1`,
+      [id, amount, amount === null ? false : (u.estimateIsConfirmed ?? false), u.customerMessage ?? null, u.staffNotes ?? null, u.to ?? r.status, approvedAt, approvedAmount, approvedBy === null ? "" : approvedBy ?? null]);
     if (u.to && u.to !== r.status) {
       await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor, note) values ($1,$2,$3,$4,$5)", [id, r.status, u.to, actor, u.note ?? null]);
       if (r.email) {
@@ -126,5 +150,32 @@ export async function updateRepair(db: Db, id: string, u: RepairUpdate, actor: s
       }
     }
     await audit(actor, "repair_updated", "repair", id, { reference: r.reference, to: u.to ?? null, amount, confirmed: u.estimateIsConfirmed ?? false }, q);
+  });
+}
+
+/**
+ * The customer, using the private link from their status page, approves the price shown or declines the repair.
+ * Approval is for the exact amount on screen: if staff changed it meanwhile, nothing is approved and the customer is told.
+ */
+export async function respondToEstimate(db: Db, reference: string, token: string, decision: "approve" | "decline", seenAmount: number): Promise<void> {
+  await db.tx(async (q) => {
+    const r = (await q.query<Row & { email: string | null }>(`select ${COLS}, email from repair_inquiries where reference = $1 for update`, [reference.trim().toUpperCase()]))[0];
+    if (!r || !eq(r.tracking_token_hash, sha(token))) throw new RepairError("not_found", "We could not find that repair request.");
+    if (!needsApproval(r)) throw new RepairError("bad_transition", "There is nothing to approve right now.");
+    if (decision === "decline") {
+      if (!canRepairTransition(r.status, "cancelled")) throw new RepairError("bad_transition", "This request can no longer be cancelled online. Please contact us.");
+      await q.query("update repair_inquiries set status = 'cancelled', updated_at = now() where id = $1", [r.id]);
+      await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor, note) values ($1,$2,'cancelled','customer','Customer declined the price')", [r.id, r.status]);
+    } else {
+      if (r.estimate_amount !== seenAmount) throw new RepairError("bad_input", "The price was updated while you were looking. Please read the new price and approve again.");
+      await q.query("update repair_inquiries set approved_at = now(), approved_amount = $2, approved_by = 'customer', status = 'booked', updated_at = now() where id = $1", [r.id, r.estimate_amount]);
+      await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor, note) values ($1,$2,'booked','customer',$3)", [r.id, r.status, `Customer approved Rs. ${r.estimate_amount}`]);
+      if (r.email) {
+        await q.query("insert into notification_outbox(kind, recipient, payload, dedupe_key) values ('repair_status', $1, $2, $3) on conflict (dedupe_key) do nothing",
+          [r.email, JSON.stringify({ reference: r.reference, status: "booked" }), `repair_status:${r.reference}:booked`]);
+      }
+    }
+    await audit("customer", decision === "approve" ? "repair_estimate_approved" : "repair_estimate_declined", "repair", r.id, { reference: r.reference, amount: r.estimate_amount }, q);
+    await queueStaffAlert(q, "repair", r.reference, decision === "approve" ? `Customer approved Rs. ${r.estimate_amount}. You can start the repair.` : "Customer declined the price. The request was cancelled.");
   });
 }

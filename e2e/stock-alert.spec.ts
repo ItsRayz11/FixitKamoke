@@ -15,9 +15,12 @@ test("a sold-out item offers a back-in-stock alert; an in-stock item does not", 
   await ensureOwnerLogin(page);
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill(NAME);
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("1200");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("0");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
 

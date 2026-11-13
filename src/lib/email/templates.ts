@@ -40,6 +40,13 @@ export interface OrderEmailData {
   shippingFee: number;
   shippingStatus: string;
   total: number;
+  /** Cash-on-delivery advance. 0 when none applies. */
+  advanceRequired?: number;
+  advancePaid?: number;
+  carrier?: string | null;
+  trackingNumber?: string | null;
+  refundedAmount?: number;
+  paymentStatus?: string;
   items: { name: string; quantity: number; lineTotal: number }[];
 }
 
@@ -58,21 +65,47 @@ export function renderOrderEmail(kind: string, d: OrderEmailData, ctx: EmailCont
   const track = `${ctx.baseUrl}/track`;
   const first = escapeHtml(d.customerName.split(" ")[0] ?? d.customerName);
   const pay = paymentLabel(d.paymentMethod, d.paymentProvider);
+  const adv = d.paymentMethod === "cod" && (d.advancePaid ?? 0) === 0 ? (d.advanceRequired ?? 0) : 0;
+  const paidAdv = d.paymentMethod === "cod" ? (d.advancePaid ?? 0) : 0;
+  // A transfer, wallet or online order that is not paid yet: say what is owed and that nothing is confirmed until the money is checked.
+  const waiting = d.paymentMethod !== "cod" && d.paymentStatus !== "paid";
+  const waitingPlain = `Waiting for your payment of ${formatPKR(d.total)} (${pay}). The payment details are on the order page you saw after ordering. We confirm the order only after we have checked that the money arrived.`;
+  const waitingHtml = `<strong>Waiting for your payment of ${formatPKR(d.total)}</strong> (${escapeHtml(pay)}). The payment details are on the order page you saw after ordering. We confirm the order only after we have checked that the money arrived.`;
   const lines: Record<string, { subject: string; intro: string; plain: string }> = {
+    order_payment_confirmed: {
+      subject: `We received your payment for order ${d.orderNumber}`,
+      intro: `Thank you, ${first}. We have checked and received your payment of <strong>${formatPKR(d.total)}</strong> for order <strong>${escapeHtml(d.orderNumber)}</strong>. We will contact you to confirm the order.`,
+      plain: `We have checked and received your payment of ${formatPKR(d.total)} for order ${d.orderNumber}. We will contact you to confirm the order.`,
+    },
+    order_advance_verified: {
+      subject: `We received your advance for order ${d.orderNumber}`,
+      intro: `Thank you, ${first}. We have checked and received your advance of <strong>${formatPKR(paidAdv)}</strong> for order <strong>${escapeHtml(d.orderNumber)}</strong>. Remaining to pay on delivery: <strong>${formatPKR(d.total - paidAdv)}</strong>. We will contact you to confirm the order.`,
+      plain: `We have checked and received your advance of ${formatPKR(paidAdv)} for order ${d.orderNumber}. Remaining to pay on delivery: ${formatPKR(d.total - paidAdv)}. We will contact you to confirm the order.`,
+    },
     order_received: {
       subject: `We received your order ${d.orderNumber}`,
-      intro: `Thank you, ${first}. We have received your order <strong>${escapeHtml(d.orderNumber)}</strong>. It is not confirmed yet: we will contact you to confirm it${d.shippingStatus === "needs_confirmation" ? " and your delivery fee" : ""}.`,
-      plain: `Thank you. We have received your order ${d.orderNumber}. It is not confirmed yet: we will contact you to confirm it${d.shippingStatus === "needs_confirmation" ? " and your delivery fee" : ""}.`,
+      intro: `Thank you, ${first}. We have received your order <strong>${escapeHtml(d.orderNumber)}</strong>. It is not confirmed yet: we will contact you to confirm it${d.shippingStatus === "needs_confirmation" ? " and your delivery fee" : ""}.${adv ? ` <strong>An advance of ${formatPKR(adv)} must be paid first</strong>; the remaining ${formatPKR(d.total - adv)} is paid on delivery. The payment details are on your order page.` : ""}${waiting ? ` ${waitingHtml}` : ""}`,
+      plain: `Thank you. We have received your order ${d.orderNumber}. It is not confirmed yet: we will contact you to confirm it${d.shippingStatus === "needs_confirmation" ? " and your delivery fee" : ""}.${adv ? ` An advance of ${formatPKR(adv)} must be paid first; the remaining ${formatPKR(d.total - adv)} is paid on delivery. The payment details are on your order page.` : ""}${waiting ? ` ${waitingPlain}` : ""}`,
     },
     order_confirmed: {
       subject: `Your order ${d.orderNumber} is confirmed`,
-      intro: `Good news, ${first}: order <strong>${escapeHtml(d.orderNumber)}</strong> is confirmed. Payment: ${pay}.`,
-      plain: `Your order ${d.orderNumber} is confirmed. Payment: ${pay}.`,
+      intro: `Good news, ${first}: order <strong>${escapeHtml(d.orderNumber)}</strong> is confirmed. Payment: ${pay}.${paidAdv > 0 ? ` Advance received: ${formatPKR(paidAdv)}. To pay on delivery: ${formatPKR(d.total - paidAdv)}.` : ""}`,
+      plain: `Your order ${d.orderNumber} is confirmed. Payment: ${pay}.${paidAdv > 0 ? ` Advance received: ${formatPKR(paidAdv)}. To pay on delivery: ${formatPKR(d.total - paidAdv)}.` : ""}`,
     },
     order_shipped: {
       subject: `Your order ${d.orderNumber} has been sent`,
-      intro: `Order <strong>${escapeHtml(d.orderNumber)}</strong> is on its way, ${first}.`,
-      plain: `Your order ${d.orderNumber} is on its way.`,
+      intro: `Order <strong>${escapeHtml(d.orderNumber)}</strong> is on its way, ${first}.${d.carrier ? ` Courier: ${escapeHtml(d.carrier)}${d.trackingNumber ? `, tracking number: <strong>${escapeHtml(d.trackingNumber)}</strong>` : ""}.` : ""}${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay on delivery.` : ""}`,
+      plain: `Your order ${d.orderNumber} is on its way.${d.carrier ? ` Courier: ${d.carrier}${d.trackingNumber ? `, tracking number: ${d.trackingNumber}` : ""}.` : ""}${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay on delivery.` : ""}`,
+    },
+    order_out_for_delivery: {
+      subject: `Your order ${d.orderNumber} is out for delivery`,
+      intro: `Order <strong>${escapeHtml(d.orderNumber)}</strong> is out for delivery today, ${first}.${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay.` : ""}`,
+      plain: `Your order ${d.orderNumber} is out for delivery.${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay.` : ""}`,
+    },
+    order_refunded: {
+      subject: `A refund was recorded for order ${d.orderNumber}`,
+      intro: `A refund of <strong>${formatPKR(d.refundedAmount ?? 0)}</strong> has been recorded for order <strong>${escapeHtml(d.orderNumber)}</strong>. It was returned through the same way you paid. Your bank or wallet decides how long it takes to show; contact us if it has not arrived.`,
+      plain: `A refund of ${formatPKR(d.refundedAmount ?? 0)} has been recorded for order ${d.orderNumber}. It was returned through the same way you paid. Your bank or wallet decides how long it takes to show; contact us if it has not arrived.`,
     },
     order_delivered: {
       subject: `Your order ${d.orderNumber} was delivered`,
@@ -150,4 +183,12 @@ export function renderStaffAlert(kind: string, ref: string, summary: string, ctx
 ${summary}
 
 Open in admin: ${link}` };
+}
+
+export function renderContactReceived(name: string, ctx: EmailContext): Rendered {
+  const first = escapeHtml(name.split(" ")[0] ?? name);
+  const subject = "We received your message";
+  const html = shell(ctx, subject, p(`Thank you, ${first}. We have received your message and will reply as soon as we can.`) +
+    p(`<span style="font-size:14px;color:#475569">This is an automatic acknowledgement, not an answer to your question. Please do not reply to it.</span>`));
+  return { subject, html, text: "Thank you. We have received your message and will reply as soon as we can.\n\nThis is an automatic acknowledgement, not an answer to your question." };
 }

@@ -6,9 +6,9 @@ import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { flash } from "@/lib/admin/flash";
-import { saveStore, storeSettingsSchema, type StoreSettings } from "@/lib/settings";
+import { getStore, saveStore, storeSettingsSchema, type StoreSettings } from "@/lib/settings";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
-import type { ShippingConfig } from "@/lib/domain/shipping";
+import { zoneProblems, type ShippingConfig, type ShippingZone } from "@/lib/domain/shipping";
 
 const blank = (f: FormData, k: string) => {
   const v = String(f.get(k) ?? "").trim();
@@ -33,7 +33,7 @@ export async function saveStoreAction(form: FormData) {
     const i = p.error.issues[0];
     flash("/admin/settings", { error: `${String(i.path[0] ?? "Setting")}: ${i.message}` });
   }
-  const data = p.data as StoreSettings;
+  const data = { ...(await getStore()), ...p.data } as StoreSettings; // keep settings this form does not show (wallets)
   await saveStore(data);
   await audit(admin.email, "store_settings_updated", "settings", "store", { policiesApproved: data.policiesApproved, whatsappSet: !!data.whatsappNumber });
   revalidatePath("/", "layout");
@@ -48,6 +48,8 @@ const zoneSchema = z.object({
   freeThreshold: z.number().int().min(1).nullable(),
   codAvailable: z.boolean(),
   etaDays: z.tuple([z.number().int().min(0).max(60), z.number().int().min(0).max(60)]).nullable(),
+  active: z.boolean(),
+  advance: z.boolean(),
 });
 
 export async function saveShippingAction(form: FormData) {
@@ -67,10 +69,14 @@ export async function saveShippingAction(form: FormData) {
       freeThreshold: toInt(`z${i}_free`),
       codAvailable: form.get(`z${i}_cod`) === "on",
       etaDays: etaMin !== null && etaMax !== null ? [etaMin, etaMax] : null,
+      active: form.get(`z${i}_active`) === "on",
+      advance: form.get(`z${i}_adv`) === "on",
     });
   }
   const parsed = z.array(zoneSchema).max(30).safeParse(zones);
   if (!parsed.success) flash("/admin/shipping", { error: `Check the delivery zones: ${parsed.error.issues[0].message}` });
+  const consistency = zoneProblems(parsed.data as ShippingZone[]);
+  if (consistency) flash("/admin/shipping", { error: consistency });
   const unlisted = form.get("unlistedCity") === "not_serviceable" ? "not_serviceable" : "manual_confirmation";
   const config: ShippingConfig = { version: `v-${new Date().toISOString()}`, zones: parsed.data!, unlistedCity: unlisted };
   await (await getDb()).query(

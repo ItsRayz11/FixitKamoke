@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { flash, slugify } from "@/lib/admin/flash";
+import { pktDateToInstant } from "@/lib/domain/sale";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : "");
 const dup = (e: unknown) => /duplicate key/.test(msg(e));
@@ -45,8 +46,11 @@ export async function deleteCategoryAction(form: FormData) {
 
 const couponSchema = z.object({
   code: z.string().trim().min(3, "Code needs at least 3 characters").max(30).regex(/^[A-Za-z0-9_-]+$/, "Code can only use letters, numbers, - and _"),
-  type: z.enum(["percent", "fixed"]),
+  type: z.enum(["percent", "fixed", "freeship"]),
   value: z.coerce.number().int().min(1, "Value must be at least 1"),
+  startsAt: z.string().trim().max(10),
+  perCustomerLimit: z.string().trim().transform((v) => (v === "" ? null : Number(v))).pipe(z.union([z.null(), z.number().int().min(1)])),
+  categoryId: z.string().trim().transform((v) => v || null).pipe(z.union([z.null(), z.string().uuid()])),
   minSubtotal: z.coerce.number().int().min(0),
   maxDiscount: z.string().trim().transform((v) => (v === "" ? null : Number(v))).pipe(z.union([z.null(), z.number().int().min(1)])),
   usageLimit: z.string().trim().transform((v) => (v === "" ? null : Number(v))).pipe(z.union([z.null(), z.number().int().min(1)])),
@@ -56,16 +60,20 @@ const couponSchema = z.object({
 export async function saveCouponAction(form: FormData) {
   const admin = await assertAdmin("manager");
   const p = couponSchema.safeParse({
-    code: form.get("code"), type: form.get("type"), value: form.get("value"), minSubtotal: form.get("minSubtotal") || 0,
+    code: form.get("code"), type: form.get("type"), value: form.get("type") === "freeship" ? 1 : form.get("value"), startsAt: form.get("startsAt") ?? "", perCustomerLimit: form.get("perCustomerLimit") ?? "", categoryId: form.get("categoryId") ?? "", minSubtotal: form.get("minSubtotal") || 0,
     maxDiscount: form.get("maxDiscount") ?? "", usageLimit: form.get("usageLimit") ?? "", expiresAt: form.get("expiresAt") ?? "",
   });
   if (!p.success) flash("/admin/coupons", { error: p.error.issues[0].message });
   const d = p.data;
   if (d.type === "percent" && d.value > 90) flash("/admin/coupons", { error: "Percentage discounts are limited to 90%." });
+  const startsAt = d.startsAt ? pktDateToInstant(d.startsAt, false) : null;
+  if (d.startsAt && !startsAt) flash("/admin/coupons", { error: "Start date must be a real date." });
+  if (startsAt && d.expiresAt && d.expiresAt <= startsAt) flash("/admin/coupons", { error: "The coupon must end after it starts." });
+  const allowWithSale = form.get("allowWithSale") === "on";
   try {
     await (await getDb()).query(
-      "insert into coupons(code, type, value, min_subtotal, max_discount, usage_limit, expires_at) values ($1,$2,$3,$4,$5,$6,$7)",
-      [d.code.toUpperCase(), d.type, d.value, d.minSubtotal, d.maxDiscount, d.usageLimit, d.expiresAt],
+      "insert into coupons(code, type, value, min_subtotal, max_discount, usage_limit, expires_at, starts_at, per_customer_limit, allow_with_sale, category_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+      [d.code.toUpperCase(), d.type, d.value, d.minSubtotal, d.maxDiscount, d.usageLimit, d.expiresAt, startsAt, d.perCustomerLimit, allowWithSale, d.categoryId],
     );
   } catch (e) {
     flash("/admin/coupons", { error: dup(e) ? "That coupon code already exists." : "Could not save the coupon." });

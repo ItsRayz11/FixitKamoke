@@ -4,6 +4,7 @@ import { StockBadge } from "@/components/product/stock-badge";
 import { Price } from "@/components/ui/price";
 import { AddToCartButton } from "@/components/cart/add-to-cart";
 import { TrackedLink } from "@/components/analytics/tracked-link";
+import { QuickView } from "@/components/product/quick-view";
 
 export function ProductCard({ product: p }: { product: Product }) {
   const finishes = p.finishes ?? [];
@@ -37,6 +38,7 @@ export function ProductCard({ product: p }: { product: Product }) {
         <Price price={p.price} salePrice={p.salePrice} />
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <StockBadge stock={p.stock} />
+          <QuickView p={{ id: p.id, slug: p.slug, name: p.variantLabel && !many ? `${p.name} — ${p.variantLabel}` : p.name, brand: p.brand, description: p.description, price: p.price, salePrice: p.salePrice, stock: p.stock, image: p.image, hasFinishes: many }} />
         </div>
         {many
           ? <TrackedLink event="product_click" href={`/product/${p.slug}`} className="btn btn-ti w-full">Choose finish</TrackedLink>

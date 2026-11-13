@@ -12,6 +12,7 @@ import { latestApprovedReviews } from "@/lib/reviews";
 import { listPublishedPosts } from "@/lib/blog";
 import { getShippingConfig } from "@/lib/orders/create-order";
 import { formatPKR } from "@/lib/domain/money";
+import { CategoryIcon } from "@/components/home/category-icon";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,11 @@ export default async function HomePage() {
     getShippingConfig(db),
     getStore(),
   ]);
-  const featured = collapseFinishes(featuredRaw).slice(0, 8);
+  const collapsed = collapseFinishes(featuredRaw);
+  // Only products whose sale price is genuinely in force right now. They get their own section, so the main list skips them.
+  const offers = collapsed.filter((p) => p.salePrice !== null).slice(0, 4);
+  const offerIds = new Set(offers.map((p) => p.id));
+  const featured = collapsed.filter((p) => !offerIds.has(p.id)).slice(0, 8);
   const spot = featured.find((p) => p.image) ?? null;
   const wa = whatsappLink({ kind: "general" }, store.whatsappNumber);
   const zones = (shipping?.zones ?? []).slice(0, 4);
@@ -45,13 +50,13 @@ export default async function HomePage() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan">Kamoki, Punjab</p>
             <h1 className="mt-3 max-w-2xl text-[2rem] font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              {store.heroTitle ?? "Phone repairs and accessories you can order in minutes."}
+              {store.heroTitle ?? "Premium mobile accessories and dependable repairs."}
             </h1>
             <p className="mt-4 max-w-xl text-[0.9375rem] leading-relaxed text-slate-300 sm:text-base">
-              {store.heroSubtitle ?? "Browse chargers, cases and more with clear PKR prices, or book a repair and we will confirm the details with you before any work starts."}
+              {store.heroSubtitle ?? "Clear PKR prices, real stock, and repairs you approve before any work starts."}
             </p>
             <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
-              <Link href="/shop" className="btn btn-primary !min-h-12 sm:px-7">Shop accessories</Link>
+              <Link href="/shop" className="btn btn-primary !min-h-12 sm:px-7">Shop now</Link>
               <Link href="/repairs" className="btn btn-glass !min-h-12 sm:px-7">Book a repair</Link>
               {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center px-2 text-sm font-semibold text-cyan underline">Ask on WhatsApp</a>}
             </div>
@@ -85,7 +90,8 @@ export default async function HomePage() {
             {categories.map((c) => (
               <li key={c.id}>
                 <Link href={`/category/${c.slug}`} className="ti-surface flex min-h-24 flex-col items-center justify-center rounded-[var(--radius-lg)] p-3 text-center transition-transform active:scale-[0.98]">
-                  <span className="text-sm font-bold">{c.name}</span>
+                  <CategoryIcon name={c.name} slug={c.slug} />
+                  <span className="mt-1 text-sm font-bold">{c.name}</span>
                   <span className="mt-0.5 text-xs text-slate-600">{c.inStock > 0 ? `${c.inStock} in stock` : "Currently sold out"}</span>
                 </Link>
               </li>
@@ -111,6 +117,18 @@ export default async function HomePage() {
         )}
       </section>
 
+      {offers.length > 0 && (
+        <section className="container-x pb-9" aria-labelledby="offers">
+          <div className="flex items-end justify-between">
+            <h2 id="offers" className="text-xl font-bold">Special offers</h2>
+            <Link href="/shop" className="inline-flex min-h-11 items-center text-sm font-semibold text-accent">All products</Link>
+          </div>
+          <ul className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {offers.map((p) => <li key={p.id}><ProductCard product={p} /></li>)}
+          </ul>
+        </section>
+      )}
+
       <RecentlyViewed />
 
       {/* 7: repair services and the booking pathway */}
@@ -129,6 +147,24 @@ export default async function HomePage() {
           </ol>
           <Link href="/repairs" className="btn btn-primary mt-5 w-full sm:w-auto">Request a repair</Link>
         </div>
+      </section>
+
+      {/* Why shop here: only things the shop really does */}
+      <section className="container-x pb-2" aria-labelledby="why">
+        <h2 id="why" className="text-xl font-bold">Why shop with Fixit</h2>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Clear PKR prices", "Every price is shown up front. Delivery is shown at checkout before you order."],
+            ["Real stock", "Availability on each product is the real count, checked again when you order."],
+            ["Repairs you approve", "We share a price and wait for your go-ahead before any repair work starts."],
+            ["Track by reference", "Follow any order or repair with its reference number."],
+          ].map(([t, d]) => (
+            <li key={t} className="rounded-[var(--radius-lg)] border border-line bg-surface p-4">
+              <p className="font-bold">{t}</p>
+              <p className="mt-1 text-sm text-muted">{d}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* 8: transparent delivery and support */}

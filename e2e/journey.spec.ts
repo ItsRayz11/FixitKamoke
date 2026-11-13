@@ -17,7 +17,7 @@ test.beforeAll(async ({ request }) => {
 
 test("browse, search tolerant of case/spacing, and open a product", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Phone repairs");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("dependable repairs");
   await page.goto("/shop?q=USB-C+cable");
   await expect(page.getByRole("heading", { name: "DEMO USB-C Cable 1m" })).toBeVisible();
   await page.goto("/shop?q=usbc");

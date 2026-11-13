@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth/session";
+import { hasRole, requireAdmin } from "@/lib/auth/session";
 import { getDashboardStats } from "@/lib/admin/stats";
 import { formatPKR } from "@/lib/domain/money";
 
@@ -20,7 +20,9 @@ function Stat({ label, value, href, note }: { label: string; value: string | num
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
-  await requireAdmin("staff");
+  const admin = await requireAdmin("staff");
+  const manager = hasRole(admin, "manager");
+  const owner = hasRole(admin, "owner");
   const sp = await searchParams;
   const s = await getDashboardStats();
   const f = s.funnel;
@@ -28,18 +30,38 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <div>
       <h1 className="text-2xl font-extrabold">Dashboard</h1>
       {sp.denied && <p role="alert" className="mt-3 rounded-[var(--radius-sm)] bg-amber-50 p-3 text-sm text-warn">Your role does not have access to that page.</p>}
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Orders awaiting confirmation" value={s.pendingOrders} href="/admin/orders?status=pending_confirmation" />
-        <Stat label="New repair requests" value={s.newRepairs} href="/admin/repairs?status=new" />
-        <Stat label="Waiting for payment" value={s.awaitingPayment} href="/admin/payments" note="Transfers to check and online orders not yet paid" />
-        <Stat label="Unanswered messages" value={s.openMessages} href="/admin/messages" />
-        <Stat label="Orders, last 30 days" value={s.orders30} />
-        <Stat label="Order value, last 30 days" value={formatPKR(s.revenue30)} note="Excludes cancelled, rejected and returned" />
-        <Stat label="Average order value" value={s.aov30 ? formatPKR(s.aov30) : "—"} />
-        <Stat label="Cancellation rate (30 days)" value={pct(s.cancelRate)} />
-        <Stat label="Repeat customers" value={pct(s.repeatRate)} note="Share of phone numbers with 2+ orders" />
-        <Stat label="Emails waiting to send" value={s.outboxPending} href="/admin/email" />
+      <nav aria-label="Quick actions" className="mt-4 flex flex-wrap gap-2">
+        {([["/admin/products/new", "Add product", manager], ["/admin/orders?status=pending_confirmation", "View pending orders", true], ["/admin/coupons", "Create discount", manager], ["/admin/shipping", "Update shipping", manager], ["/admin/payments", "Review payments", owner]] as const).filter(([, , show]) => show).map(([href, label]) => (
+          <Link key={href} href={href} className="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-4 text-sm font-semibold text-accent transition-colors hover:bg-canvas">{label}</Link>
+        ))}
+      </nav>
+
+      <h2 className="mt-6 text-sm font-bold uppercase tracking-wide text-muted">Needs attention</h2>
+      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="kpis">
+        <Stat label="Today's orders" value={s.todayOrders} href="/admin/orders" />
+        <Stat label="Pending orders" value={s.pendingOrders} href="/admin/orders?status=pending_confirmation" note="Waiting for you to confirm" />
+        <Stat label="Awaiting advance" value={s.awaitingAdvance} href="/admin/orders" note="COD advances not verified" />
+        <Stat label="Awaiting payment" value={s.awaitingPayment} href={owner ? "/admin/payments" : "/admin/orders"} note="Transfers and online orders" />
+        <Stat label="Ready to ship" value={s.readyToShip} href="/admin/orders" note="Confirmed or being prepared" />
+        <Stat label="Low stock items" value={s.lowStock.length} href={manager ? "/admin/inventory" : undefined} note="3 or fewer left" />
+        <Stat label="Pending repairs" value={s.newRepairs} href="/admin/repairs?status=new" />
+        <Stat label="Unread messages" value={s.openMessages} href="/admin/messages" />
       </div>
+
+      <h2 className="mt-6 text-sm font-bold uppercase tracking-wide text-muted">Last 30 days</h2>
+      <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Orders" value={s.orders30} />
+        <Stat label="Total sales" value={formatPKR(s.revenue30)} note="Excludes cancelled, rejected and returned" />
+        <Stat label="Average order" value={s.aov30 ? formatPKR(s.aov30) : "—"} />
+        <Stat label="Cancellation rate" value={pct(s.cancelRate)} />
+        <Stat label="Repeat customers" value={pct(s.repeatRate)} note="Phone numbers with 2+ orders" />
+        <Stat label="Emails waiting" value={s.outboxPending} href={owner ? "/admin/email" : undefined} />
+      </div>
+
+      <section className="mt-6 rounded-[var(--radius-md)] border border-line bg-surface p-4" aria-labelledby="chart-h">
+        <h2 id="chart-h" className="font-bold">Orders, last 14 days</h2>
+        <OrdersChart days={s.ordersByDay} />
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="rounded-[var(--radius-md)] border border-line bg-surface p-4" aria-labelledby="low">
@@ -64,5 +86,26 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       </div>
     </div>
+  );
+}
+
+/** Real order counts per day. With no orders at all it says so instead of drawing an empty chart. */
+function OrdersChart({ days }: { days: { day: string; count: number }[] }) {
+  const total = days.reduce((n, d) => n + d.count, 0);
+  if (total === 0) return <p className="mt-2 text-sm text-muted">No orders in the last 14 days yet.</p>;
+  const max = Math.max(...days.map((d) => d.count));
+  const label = (d: string) => new Date(`${d}T00:00:00+05:00`).toLocaleDateString("en-PK", { day: "numeric", month: "short", timeZone: "Asia/Karachi" });
+  return (
+    <>
+      <p className="mt-1 text-sm text-muted">{total} order{total === 1 ? "" : "s"} in 14 days. Busiest day: {max}.</p>
+      <div role="img" aria-label={`Orders per day for the last 14 days: ${days.map((d) => `${label(d.day)} ${d.count}`).join(", ")}`} className="mt-3 flex h-32 items-end gap-1">
+        {days.map((d) => (
+          <div key={d.day} className="flex h-full min-w-0 flex-1 flex-col justify-end" title={`${label(d.day)}: ${d.count}`}>
+            <div className={`w-full rounded-t ${d.count ? "bg-accent" : "bg-line"}`} style={{ height: d.count ? `${Math.max(6, Math.round((d.count / max) * 100))}%` : "3px" }} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-muted" aria-hidden="true"><span>{label(days[0].day)}</span><span>{label(days[days.length - 1].day)}</span></div>
+    </>
   );
 }

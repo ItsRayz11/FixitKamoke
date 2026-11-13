@@ -26,7 +26,7 @@ export default async function RepairStatusPage({ params, searchParams }: { param
     <div className="container-x max-w-2xl py-10">
       <h1 className="text-2xl font-extrabold">{repair.status === "new" ? "Your repair request is received" : "Your repair request"}</h1>
       <p className="mt-2 text-muted">Keep your reference <strong>{repair.reference}</strong>. We will contact you after reviewing it. This is not a booking, a quote or a promise of a repair result.</p>
-      <div className="mt-6"><RepairDetails repair={repair} /></div>
+      <div className="mt-6"><RepairDetails repair={repair} token={t} /></div>
       <div className="mt-6 flex flex-wrap gap-4 text-sm font-semibold">
         <Link href="/repairs/track" className="text-accent">Check status later</Link>
         {wa && <a href={wa} target="_blank" rel="noopener noreferrer" className="text-accent">Message us on WhatsApp</a>}

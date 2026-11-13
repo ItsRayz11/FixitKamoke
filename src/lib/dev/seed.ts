@@ -6,6 +6,8 @@ import type { Db } from "@/lib/db";
  */
 export async function seedDemo(db: Db): Promise<{ products: number }> {
   if (process.env.NODE_ENV === "production") throw new Error("Demo seeding is disabled in production");
+  // A real database URL means real shop data. Demo seeding only ever runs on the throwaway embedded database.
+  if (process.env.DATABASE_URL) throw new Error("Demo seeding refuses to run against a real database (DATABASE_URL is set)");
 
   await db.query(
     `insert into store_settings(key, value) values ('shipping', $1)

@@ -73,9 +73,13 @@ test("admin upload: signed ticket, files go to Cloudinary, links land in the for
   });
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill(NAME);
+  await page.getByRole("tab", { name: "Pricing" }).click();
   await page.getByLabel("Price (Rs.)", { exact: true }).fill("1500");
+  await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("5");
-  await page.getByLabel(/Published/).check();
+  await page.getByRole("tab", { name: "Publishing" }).click();
+  await page.getByRole("radio", { name: /Active/ }).check();
+  await page.getByRole("tab", { name: "Media" }).click();
 
   // a wrong file type is refused before anything is sent
   await page.locator("#images-file").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });

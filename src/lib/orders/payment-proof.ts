@@ -2,6 +2,7 @@ import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { queueStaffAlert } from "@/lib/email/alerts";
 import { hashToken } from "./create-order";
+import { isManualMethod } from "@/lib/domain/payment-label";
 
 export class PaymentProofError extends Error {}
 
@@ -13,10 +14,12 @@ export async function submitTransferReference(db: Db, orderNumber: string, token
   const ref = reference.trim().replace(/\s+/g, " ");
   if (ref.length < 4 || ref.length > 60) throw new PaymentProofError("Please enter the transaction ID or reference from your payment (4 to 60 characters).");
   await db.tx(async (q) => {
-    const o = (await q.query<{ id: string; payment_method: string; payment_status: string; status: string }>(
-      "select id, payment_method, payment_status, status from orders where order_number = $1 and tracking_token_hash = $2 for update", [orderNumber, hashToken(token)]))[0];
+    const o = (await q.query<{ id: string; payment_method: string; payment_status: string; status: string; advance_required: number; advance_paid: number }>(
+      "select id, payment_method, payment_status, status, advance_required, advance_paid from orders where order_number = $1 and tracking_token_hash = $2 for update", [orderNumber, hashToken(token)]))[0];
     if (!o) throw new PaymentProofError("We could not find that order.");
-    if (o.payment_method !== "bank_transfer") throw new PaymentProofError("This order is not paid by transfer.");
+    const advanceOrder = o.payment_method === "cod" && o.advance_required > 0;
+    if (!isManualMethod(o.payment_method) && !advanceOrder) throw new PaymentProofError("This order is not paid by transfer.");
+    if (advanceOrder && o.advance_paid >= o.advance_required) throw new PaymentProofError("Your advance is already confirmed. Thank you.");
     if (o.payment_status === "paid") throw new PaymentProofError("This order is already marked as paid. Thank you.");
     if (["cancelled", "rejected", "returned"].includes(o.status)) throw new PaymentProofError("This order was cancelled.");
     await q.query("update orders set payment_reference = $2, payment_status = 'pending', updated_at = now() where id = $1", [o.id, ref]);

@@ -1,3 +1,4 @@
+import { instantToPktDate } from "@/lib/domain/sale";
 import { cloudinaryConfig } from "@/lib/cloudinary";
 import { notFound } from "next/navigation";
 import { requireAdmin, hasRole } from "@/lib/auth/session";
@@ -11,9 +12,10 @@ import { deleteProductAction } from "../actions";
 export const dynamic = "force-dynamic";
 
 interface Row {
-  id: string; name: string; slug: string; brand: string | null; category_id: string | null; description: string; price: number; sale_price: number | null;
+  id: string; name: string; slug: string; brand: string | null; category_id: string | null; description: string; price: number; sale_price: number | null; sale_starts_at: string | null; sale_ends_at: string | null;
   sku: string | null; stock: number; published: boolean; warranty_info: string | null; weight_grams: number | null; specs: Record<string, string>; compatible_devices: string[];
   variant_group: string | null; variant_label: string | null; variant_hex: string | null; variant_required: boolean;
+  archived: boolean; seo_title: string | null; seo_description: string | null;
 }
 
 export default async function EditProduct({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -34,15 +36,15 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
         categories={await listCategories()}
         uploads={cloudinaryConfig() !== null}
         v={{
-          id: p.id, name: p.name, slug: p.slug, brand: p.brand ?? "", categoryId: p.category_id ?? "", description: p.description, price: p.price, salePrice: p.sale_price ?? "",
-          sku: p.sku ?? "", stock: p.stock, published: p.published, warranty: p.warranty_info ?? "", weight: p.weight_grams ?? "",
+          id: p.id, name: p.name, slug: p.slug, brand: p.brand ?? "", categoryId: p.category_id ?? "", description: p.description, price: p.price, salePrice: p.sale_price ?? "", saleStarts: instantToPktDate(p.sale_starts_at), saleEnds: instantToPktDate(p.sale_ends_at),
+          sku: p.sku ?? "", stock: p.stock, status: p.archived ? "archived" : p.published ? "active" : "draft", seoTitle: p.seo_title ?? "", seoDescription: p.seo_description ?? "", warranty: p.warranty_info ?? "", weight: p.weight_grams ?? "",
           specs: Object.entries(p.specs ?? {}).map(([k, v]) => `${k}: ${v}`).join("\n"), devices: (p.compatible_devices ?? []).join(", "),
           images: imgs.map((i) => `${i.url}|${i.alt}`).join("\n"), spin: spin.map((s) => s.url).join("\n"),
           variantGroup: p.variant_group ?? "", variantLabel: p.variant_label ?? "", variantHex: p.variant_hex ?? "", variantRequired: p.variant_required,
         }}
       />
       {hasRole(admin, "owner") && (
-        <div className="mt-10 max-w-3xl border-t border-line pt-4">
+        <div className="mt-10 max-w-3xl border-t border-line pb-28 pt-4 lg:pb-0">
           <p className="mb-2 text-sm text-muted">Deleting removes the product from the store. Past orders keep their records. Unpublishing (above) is usually safer.</p>
           <ConfirmButton action={deleteProductAction} fields={{ id: p.id }} title={`Delete “${p.name}”?`} description="This removes the product and its photos from the store. Past orders keep their own copy of what was bought. This cannot be undone." confirmLabel="Delete product" className="min-h-11 rounded-[var(--radius-sm)] bg-danger px-5 text-sm font-semibold text-white">Delete product</ConfirmButton>
         </div>

@@ -16,6 +16,11 @@ export interface OrderView {
   discount: number;
   shippingFee: number;
   total: number;
+  /** Cash-on-delivery advance to pay first (0 = none) and how much staff have verified. */
+  advanceRequired: number;
+  advancePaid: number;
+  carrier: string | null;
+  trackingNumber: string | null;
   shippingStatus: string;
   items: { name: string; quantity: number; unitPrice: number; lineTotal: number }[];
   history: { status: string; at: string }[];
@@ -23,7 +28,7 @@ export interface OrderView {
 
 interface OrderRow {
   id: string; order_number: string; status: string; created_at: Date | string; customer_name: string; city: string; payment_method: string; payment_status: string; payment_provider: string | null;
-  subtotal: number; discount: number; shipping_fee: number; total: number; shipping_status: string; phone: string; tracking_token_hash: string;
+  subtotal: number; discount: number; shipping_fee: number; total: number; shipping_status: string; phone: string; tracking_token_hash: string; advance_required: number; advance_paid: number; carrier: string | null; tracking_number: string | null;
 }
 
 const safeEq = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -35,13 +40,13 @@ async function build(db: Db, o: OrderRow): Promise<OrderView> {
     "select to_status, created_at from order_status_history where order_id = $1 order by created_at, id", [o.id]);
   return {
     orderNumber: o.order_number, status: o.status, createdAt: new Date(o.created_at).toISOString(), customerName: o.customer_name, city: o.city,
-    paymentMethod: o.payment_method, paymentStatus: o.payment_status, paymentProvider: o.payment_provider, subtotal: o.subtotal, discount: o.discount, shippingFee: o.shipping_fee, total: o.total, shippingStatus: o.shipping_status,
+    paymentMethod: o.payment_method, paymentStatus: o.payment_status, paymentProvider: o.payment_provider, subtotal: o.subtotal, discount: o.discount, shippingFee: o.shipping_fee, total: o.total, advanceRequired: o.advance_required, advancePaid: o.advance_paid, carrier: o.carrier, trackingNumber: o.tracking_number, shippingStatus: o.shipping_status,
     items: items.map((i) => ({ name: i.product_name, quantity: i.quantity, unitPrice: i.unit_price, lineTotal: i.line_total })),
     history: history.map((h) => ({ status: h.to_status, at: new Date(h.created_at).toISOString() })),
   };
 }
 
-const COLS = "id, order_number, status, created_at, customer_name, city, payment_method, payment_status, payment_provider, subtotal, discount, shipping_fee, total, shipping_status, phone, tracking_token_hash";
+const COLS = "id, order_number, status, created_at, customer_name, city, payment_method, payment_status, payment_provider, subtotal, discount, shipping_fee, total, shipping_status, phone, tracking_token_hash, advance_required, advance_paid, carrier, tracking_number";
 
 export async function findOrderByToken(db: Db, orderNumber: string, token: string): Promise<OrderView | null> {
   const rows = await db.query<OrderRow>(`select ${COLS} from orders where order_number = $1`, [orderNumber.toUpperCase()]);
@@ -67,7 +72,9 @@ export const STATUS_LABEL: Record<string, string> = {
   pending_confirmation: "Received, awaiting confirmation",
   confirmed: "Confirmed",
   processing: "Being prepared",
+  packed: "Packed, ready to send",
   shipped: "Shipped",
+  out_for_delivery: "Out for delivery",
   delivered: "Delivered",
   cancelled: "Cancelled",
   rejected: "Could not be accepted",

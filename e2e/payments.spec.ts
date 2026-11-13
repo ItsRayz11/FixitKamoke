@@ -44,11 +44,13 @@ test.afterAll(async ({ browser }) => {
 test("the payments page is honest: offline methods work, gateways are off until proven", async ({ page }) => {
   await ensureOwnerLogin(page);
   await page.goto("/admin/payments");
-  await expect(page.getByText("Cash on delivery:")).toBeVisible();
-  for (const g of ["JazzCash", "Easypaisa", "Safepay"]) await expect(page.getByText(g).first()).toBeVisible();
-  await expect(page.getByText("Not built", { exact: true })).toHaveCount(1); // Easypaisa: its notification format is only given to merchants
-  await expect(page.getByText(/not detected automatically/)).toBeVisible(); // honest about manual transfers
-  await expect(page.getByText(/Automatic: Safepay sends our server a signed webhook/)).toBeVisible();
+  // One card per payment method, each with an honest status.
+  for (const id of ["cod", "bank", "jazzcash", "easypaisa", "gw-safepay", "gw-jazzcash", "gw-easypaisa"]) await expect(page.getByTestId(`method-${id}`)).toBeVisible();
+  await expect(page.getByTestId("status-cod")).toHaveText("Active");
+  await expect(page.getByTestId("status-jazzcash")).toHaveText("Setup required"); // no number saved, so it cannot be offered
+  await expect(page.getByTestId("status-gw-safepay")).toHaveText("Setup required"); // no merchant credentials on this server
+  await expect(page.getByTestId("status-gw-easypaisa")).toHaveText("Not available"); // its notification format is only given to merchants
+  await expect(page.getByTestId("method-gw-safepay")).toContainText("signed webhook"); // technical detail stays available, tucked away
 });
 
 test("customers are never offered a payment gateway at checkout", async ({ page }) => {
