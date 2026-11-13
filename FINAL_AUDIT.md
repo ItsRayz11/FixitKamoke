@@ -58,12 +58,27 @@ Sending is **not verified**: no `RESEND_API_KEY` or `EMAIL_FROM` is set on the h
 ## F. Testing results
 Run on this machine (Windows, Node 24), all against throwaway in-memory databases:
 - Typecheck, lint: pass.
-- Unit and integration tests: **242 passed** (30 files).
+- Unit and integration tests: **254 passed** (32 files).
 - Production build: pass. Secret scan (no server secret in any client bundle): pass.
-- Production-mode suite (real Postgres driver, applies migrations 001 to 016): **10 passed**. Performance on a throttled phone profile: LCP 1.05 to 1.26 s (target 2.5 s), CLS at most 0.04 (target 0.1).
-- Full browser suite, desktop and phone profiles: one full run (desktop and phone profiles, about 190 tests) had 163 passing and 6 failing, with 22 not run because they follow a failure in the same file. The failures were: a real mobile layout bug (the new Save bar could cover the Delete button; fixed), two tests still expecting the old headline or finding a value twice (updated), a test timing race (fixed), and two dev-server timing flakes in the account specs. Every spec that failed or did not run was re-run after the fixes and passes (accounts 13 of 13, fulfilment, payment, two-factor, journey on desktop; the interface spec on the phone profile). A complete single run of the whole suite after the final fixes was not repeated.
+- Production-mode suite (real Postgres driver, applies migrations 001 to 016), re-run on the final code: **10 passed**. Performance on a throttled phone profile: LCP 1.3 to 1.5 s (target 2.5 s), CLS at most 0.04 (target 0.1).
+- Full browser suite, one clean run, desktop and phone profiles: 186 passed, 1 failed (a timing race in an older account test, which also skipped 4 tests after it in the same file). The race was fixed, and that file plus every spec touching cart, checkout, orders, payments, wallets, repairs fulfilment and mobile was re-run: 50 passed. After the very last two small fixes I did not repeat the complete suite a second time.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - Not done: real iPhone and Android devices, screen-reader pass, any test against the live site, any live payment or live email.
+
+## F2. Cross-check pass (second audit after the first commit)
+An independent code review of the whole branch plus my own re-read found these real defects. All are fixed and each has a test.
+1. A sale of Rs. 999 on a Rs. 1,000 item showed only Rs. 1,000 while charging Rs. 999 (the percent badge hid the strike-through). Fixed.
+2. Marking a cash-on-delivery order "paid" by hand could record cash that never arrived. COD now becomes paid only through "Record cash collected" (or a fully verified advance).
+3. The manual payment-status box could still set Refunded or Partial and bypass the money records. Those states now come only from the refund and advance forms.
+4. Recording cash after a refund flipped the status back to "paid". Now refused.
+5. Setting a delivery fee later used today's advance rule instead of the terms the order was placed under, and could demand a larger advance after one was already verified (an order that could not be confirmed). It now keeps the order's own terms; a confirmed fee can no longer be re-set.
+6. The on-screen instruction said "ship, then add tracking", so the dispatch email went out without tracking. The instruction is reversed, and tracking added later is emailed once per distinct set.
+7. A payment arriving after a cancel could queue a "we will confirm your order" email. Now dropped.
+8. Emails dropped because they were no longer true were counted as delivery failures. They now show as "Skipped".
+9. The owner could switch off every payment method and lock the shop. Now refused.
+10. Checkout called the server on every keystroke for the advance preview. Debounced.
+11. Checkout and cart now show the regular price total and the sale saving as separate lines, as the brief asks. Staff are emailed once when an order takes a product to 3 or fewer left.
+Design decision, not a bug: a customer can approve an *estimate* on the repair page. The approval is for that exact amount and is cancelled if the price changes. The page says it is an estimate.
 
 ## G. Owner action checklist (only the owner can do these)
 1. **Decide about the live data** (section 3): the demo products and demo delivery zones currently visible on the live site.

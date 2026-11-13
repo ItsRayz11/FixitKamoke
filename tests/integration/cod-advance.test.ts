@@ -135,6 +135,32 @@ describe("cash on delivery advance", () => {
     expect(await row(o.orderNumber)).toMatchObject({ total: 3300, advance_required: 1100 }); // one third of 3,300
   });
 
+  it("a delivery fee set later never changes the terms an order was placed under", async () => {
+    // Placed while the rule was OFF: setting the fee afterwards must not impose an advance, even though the rule is on now.
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: false });
+    const plain = await place({ city: "Unknownville" });
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 5000 });
+    await setManualShippingFee(db, (await row(plain.orderNumber)).id, 300, "s");
+    expect(await row(plain.orderNumber)).toMatchObject({ total: 3300, advance_required: 0 });
+
+    // Placed at one third, advance already verified: a fee raises the balance on delivery, not the advance, so it cannot get stuck.
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+    const paid = await place({ city: "Unknownville" });
+    const { id } = await row(paid.orderNumber);
+    await verifyAdvance(db, id, 1000, "s");
+    await setManualShippingFee(db, id, 300, "s");
+    expect(await row(paid.orderNumber)).toMatchObject({ total: 3300, advance_required: 1000, advance_paid: 1000 });
+    await transitionOrder(db, id, "confirmed", "s"); // not blocked
+
+    // A percentage keeps its own percentage even if the owner changed the rule to half in the meantime.
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+    const third = await place({ city: "Unknownville" });
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 5000 });
+    await setManualShippingFee(db, (await row(third.orderNumber)).id, 300, "s");
+    expect(await row(third.orderNumber)).toMatchObject({ total: 3300, advance_required: 1100 });
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+  });
+
   it("applies the advance to the final total after a coupon and respects the minimum order", async () => {
     await db.query("insert into coupons(code,type,value,min_subtotal) values ('TEN','percent',10,0)");
     const o = await place({ couponCode: "TEN" });

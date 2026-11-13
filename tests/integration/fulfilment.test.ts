@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createPgliteDb, type Db } from "@/lib/db";
 import { migrate } from "@/lib/db/migrate";
 import { createOrder } from "@/lib/orders/create-order";
-import { addOrderNote, OrderAdminError, receivedAmount, recordBalanceCollected, recordRefund, setDispatchDetails, setPaymentStatus, transitionOrder, verifyAdvance } from "@/lib/orders/admin";
+import { addOrderNote, OrderAdminError, receivedAmount, recordBalanceCollected, recordRefund, setDispatchDetails, setManualShippingFee, setPaymentStatus, transitionOrder, verifyAdvance } from "@/lib/orders/admin";
 import { saveAdvanceConfig } from "@/lib/payments/advance";
 import { defaultAdvanceConfig } from "@/lib/domain/advance";
 import { renderOrderEmail } from "@/lib/email/templates";
@@ -134,6 +134,55 @@ describe("cash on delivery collection and refunds", () => {
     expect(await get(o.id)).toMatchObject({ payment_status: "refunded", refunded_amount: 3000 });
     const mails = await db.query<{ kind: string }>("select kind from notification_outbox where kind = 'order_refunded'");
     expect(mails.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("the manual payment status cannot be used to bypass the money records", async () => {
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+    const o = await place("cod");
+    // Refund and partial states only come from the forms.
+    await expect(setPaymentStatus(db, o.id, "refunded" as never, "s")).rejects.toThrow(/by hand/);
+    await expect(setPaymentStatus(db, o.id, "partial" as never, "s")).rejects.toThrow(/by hand/);
+    // Cash on delivery is never "paid" by hand: only by recording the cash that was collected.
+    await expect(setPaymentStatus(db, o.id, "paid", "s")).rejects.toThrow(/Record cash collected/);
+    await verifyAdvance(db, o.id, 1000, "s");
+    await expect(setPaymentStatus(db, o.id, "unpaid", "s")).rejects.toThrow(/advance on this order was verified/);
+    await walk(o.id, ["confirmed", "processing", "shipped", "delivered"]);
+    await recordBalanceCollected(db, o.id, 2000, "staff@test");
+    expect(receivedAmount(await get(o.id))).toBe(3000);
+    await recordRefund(db, o.id, 500, "s");
+    await expect(setPaymentStatus(db, o.id, "unpaid", "s")).rejects.toThrow(/refunded/);
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: false });
+  });
+
+  it("recording the cash is refused once a refund exists, so a refund can never be silently undone", async () => {
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+    const o = await place("cod");
+    await verifyAdvance(db, o.id, 1000, "s");
+    await walk(o.id, ["confirmed", "processing", "shipped", "delivered"]);
+    await recordRefund(db, o.id, 1000, "s"); // the advance is refunded first
+    expect(await get(o.id)).toMatchObject({ payment_status: "refunded" });
+    await expect(recordBalanceCollected(db, o.id, 2000, "s")).rejects.toThrow(/refund was already recorded/);
+    expect((await get(o.id)).payment_status).toBe("refunded"); // not flipped back to paid
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: false });
+  });
+
+  it("a confirmed delivery fee cannot be re-set, so a total can never drop under a verified advance", async () => {
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: true, mode: "percent", bps: 3333 });
+    const o = await place("cod"); // Kamoki: fee already quoted
+    await expect(setManualShippingFee(db, o.id, 0, "s")).rejects.toThrow(/already confirmed/);
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: false });
+  });
+
+  it("courier details entered after dispatch are emailed once per distinct set", async () => {
+    await saveAdvanceConfig(db, { ...defaultAdvanceConfig(), enabled: false });
+    const o = await place("cod");
+    await db.query("update orders set email = 'ship@example.test' where id = $1", [o.id]);
+    await walk(o.id, ["confirmed", "processing", "shipped"]);
+    await setDispatchDetails(db, o.id, "TCS", "T-1", "s");
+    await setDispatchDetails(db, o.id, "TCS", "T-1", "s"); // saving the same details again sends nothing new
+    await setDispatchDetails(db, o.id, "TCS", "T-2", "s"); // a corrected number is a new message
+    const n = (await db.query("select 1 from notification_outbox where kind = 'order_tracking_updated' and payload->>'orderNumber' = (select order_number from orders where id = $1)", [o.id])).length;
+    expect(n).toBe(2);
   });
 
   it("rejects non-whole or non-positive refund amounts", async () => {

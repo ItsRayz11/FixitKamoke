@@ -66,6 +66,9 @@ describe("customer emails are only sent while they are still true", () => {
     expect(orderEmailStale("order_payment_confirmed", o({ payment_status: "paid" }))).toBe(false);
     expect(orderEmailStale("order_shipped", o({ status: "confirmed" }))).toBe(true);
     expect(orderEmailStale("order_received", o({ status: "cancelled" }))).toBe(true);
+    expect(orderEmailStale("order_payment_confirmed", o({ status: "cancelled", payment_status: "paid" }))).toBe(true); // money after a cancel is a refund job, not a "we will confirm" email
+    expect(orderEmailStale("order_tracking_updated", o({ status: "confirmed" }))).toBe(true);
+    expect(orderEmailStale("order_tracking_updated", o({ status: "shipped" }))).toBe(false);
     expect(orderEmailStale("order_refunded", o({ refunded_amount: 0 }))).toBe(true);
   });
 

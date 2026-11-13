@@ -25,6 +25,14 @@ export interface PaymentOptions {
   wallets: ("jazzcash_manual" | "easypaisa_manual")[];
 }
 
+/** Would turning this method off leave customers with nothing to pay with? Used to stop the owner locking the shop by accident. */
+export function leavesNoPaymentMethod(opts: PaymentOptions, off: "cod" | "bank" | "jazzcash" | "easypaisa"): boolean {
+  const remaining =
+    (off !== "cod" && opts.cod ? 1 : 0) + (off !== "bank" && opts.bankTransfer ? 1 : 0) +
+    opts.wallets.filter((w) => !(off === "jazzcash" && w === "jazzcash_manual") && !(off === "easypaisa" && w === "easypaisa_manual")).length + opts.online.length;
+  return remaining === 0;
+}
+
 export const OFFLINE_LABEL: Record<OfflineMethod, string> = { cod: "Cash on delivery", bank_transfer: "Bank transfer" };
 
 export interface Gateway {

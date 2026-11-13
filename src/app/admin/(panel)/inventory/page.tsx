@@ -1,3 +1,4 @@
+import { LOW_STOCK } from "@/lib/domain/stock";
 import { waitingCounts } from "@/lib/stock-alerts";
 import { displayName } from "@/lib/domain/display";
 import { requireAdmin } from "@/lib/auth/session";
@@ -11,7 +12,7 @@ export default async function InventoryAdmin({ searchParams }: { searchParams: P
   await requireAdmin("manager");
   const sp = await searchParams;
   const rows = await (await getDb()).query<{ id: string; name: string; sku: string | null; stock: number; published: boolean; variant_label: string | null }>(
-    `select id, name, sku, stock, published, variant_label from products ${sp.low ? "where stock <= 3" : ""} order by stock asc, name limit 300`);
+    `select id, name, sku, stock, published, variant_label from products ${sp.low ? `where stock <= ${LOW_STOCK}` : ""} order by stock asc, name limit 300`);
   const db = await getDb();
   const waiting = await waitingCounts(db);
   return (

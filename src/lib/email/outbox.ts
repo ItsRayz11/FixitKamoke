@@ -45,7 +45,8 @@ export function orderEmailStale(kind: string, o: { status: string; payment_statu
   const closed = ["cancelled", "rejected", "returned"].includes(o.status);
   switch (kind) {
     case "order_received": return closed;
-    case "order_payment_confirmed": return !["paid", "refunded", "partially_refunded"].includes(o.payment_status);
+    case "order_payment_confirmed": return closed || !["paid", "refunded", "partially_refunded"].includes(o.payment_status);
+    case "order_tracking_updated": return closed || !["shipped", "out_for_delivery", "delivered"].includes(o.status);
     case "order_advance_verified": return o.advance_paid === 0;
     case "order_confirmed": return closed || o.status === "pending_confirmation";
     case "order_shipped": return !["shipped", "out_for_delivery", "delivered"].includes(o.status);

@@ -12,6 +12,7 @@ import { advanceFor } from "@/lib/domain/advance";
 import { queueStaffAlert } from "@/lib/email/alerts";
 import { displayName } from "@/lib/domain/display";
 import { paymentLabel } from "@/lib/domain/payment-label";
+import { crossedIntoLow } from "@/lib/domain/stock";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
@@ -89,8 +90,8 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
     const lines: { productId: string; name: string; sku: string | null; unitPrice: number; quantity: number; categoryId: string | null; onSale: boolean }[] = [];
     for (const [productId, quantity] of qty) {
       // Atomic guard: decrement only if published and enough stock. No oversell possible even under concurrency.
-      const rows = await q.query<{ name: string; sku: string | null; price: number; sale_price: number | null; variant_label: string | null; category_id: string | null }>(
-        `update products set stock = stock - $2, updated_at = now() where id = $1 and published and stock >= $2 returning name, sku, price, ${saleNowSql("")} as sale_price, variant_label, category_id`,
+      const rows = await q.query<{ name: string; sku: string | null; price: number; sale_price: number | null; variant_label: string | null; category_id: string | null; stock: number }>(
+        `update products set stock = stock - $2, updated_at = now() where id = $1 and published and stock >= $2 returning name, sku, price, ${saleNowSql("")} as sale_price, variant_label, category_id, stock`,
         [productId, quantity],
       );
       if (!rows[0]) {
@@ -99,6 +100,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
         throw new CheckoutError("out_of_stock", `Only ${p[0].stock} of "${p[0].name}" left in stock.`, { productId, available: p[0].stock });
       }
       const r = rows[0];
+      if (crossedIntoLow(r.stock + quantity, r.stock)) await queueStaffAlert(q, "stock", `${productId.slice(0, 8)}-${r.stock}`, `${displayName(r.name, r.variant_label)}: ${r.stock === 0 ? "sold out" : `only ${r.stock} left`}`);
       lines.push({ productId, name: displayName(r.name, r.variant_label), sku: r.sku, unitPrice: r.sale_price ?? r.price, quantity, categoryId: r.category_id, onSale: r.sale_price !== null });
     }
 

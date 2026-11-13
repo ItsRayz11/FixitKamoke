@@ -21,5 +21,5 @@ export function useCartView() {
   }, [key, cart.ready]);
 
   const empty = cart.ready && cart.lines.length === 0;
-  return { cart, view: empty ? { lines: [], subtotal: 0, missing: [] } : view, loading: !empty && view === null && !failed, failed };
+  return { cart, view: empty ? { lines: [], subtotal: 0, regularTotal: 0, saleSavings: 0, missing: [] } : view, loading: !empty && view === null && !failed, failed };
 }

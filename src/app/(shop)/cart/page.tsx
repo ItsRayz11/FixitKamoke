@@ -86,6 +86,7 @@ export default function CartPage() {
 
           <aside className="h-fit rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] lg:sticky lg:top-24" aria-label="Order summary">
             <h2 className="font-bold">Summary</h2>
+            {view.saleSavings > 0 && <p className="mt-3 flex justify-between text-sm text-ok"><span>Sale savings</span><strong data-testid="cart-savings">−{formatPKR(view.saleSavings)}</strong></p>}
             <p className="mt-3 flex justify-between text-sm"><span>Subtotal</span><strong data-testid="cart-subtotal">{formatPKR(view.subtotal)}</strong></p>
             <p className="mt-1 text-xs text-muted">Delivery is added at checkout once you enter your city. You will see the full total before you place the order.</p>
             {hasProblem ? (

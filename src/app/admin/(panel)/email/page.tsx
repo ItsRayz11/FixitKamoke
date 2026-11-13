@@ -60,7 +60,8 @@ export default async function EmailAdmin({ searchParams }: { searchParams: Promi
   const cfg = emailConfig();
   const last = await getLastTest(db);
   const conn = connectionState(cfg, last);
-  const counts = await db.query<{ status: string; n: number }>("select status, count(*)::int as n from notification_outbox group by status");
+  // A message dropped because it was no longer true is a skip, not a delivery failure.
+  const counts = await db.query<{ status: string; n: number }>("select case when status = 'failed' and last_error like 'not sent:%' then 'skipped' else status end as status, count(*)::int as n from notification_outbox group by 1");
   const c = Object.fromEntries(counts.map((x) => [x.status, x.n])) as Record<string, number>;
   const recent = await db.query<{ id: string; kind: string; recipient: string; status: string; attempts: number; last_error: string | null; created_at: string }>(
     "select id, kind, recipient, status, attempts, last_error, created_at from notification_outbox order by created_at desc limit 40");
@@ -88,6 +89,7 @@ export default async function EmailAdmin({ searchParams }: { searchParams: Promi
         <Tile label="Sender" value={cfg ? (last?.ok ? "Verified by test" : "Not verified") : "Not set"} />
         <Tile label="Waiting to send" value={c.pending ?? 0} />
         <Tile label="Sent / failed" value={`${c.sent ?? 0} / ${c.failed ?? 0}`} />
+        {(c.skipped ?? 0) > 0 && <Tile label="Skipped (no longer true)" value={c.skipped} />}
       </div>
       <p className="text-sm text-muted">{CONN[conn].line}</p>
 

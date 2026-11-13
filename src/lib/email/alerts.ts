@@ -1,6 +1,6 @@
 import type { Queryable } from "@/lib/db";
 
-export type StaffAlertKind = "order" | "repair" | "message";
+export type StaffAlertKind = "order" | "repair" | "message" | "stock";
 
 /**
  * Queues an email telling the shop that something needs attention. Goes to the contact email set in Store settings

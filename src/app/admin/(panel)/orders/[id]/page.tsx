@@ -42,9 +42,10 @@ export default async function OrderAdmin({ params, searchParams }: { params: Pro
   const nextAction = advanceDue ? `Check your bank or wallet app for the ${formatPKR(o.advance_required)} advance${o.payment_reference ? ` (customer's reference: ${o.payment_reference})` : ""}, then press Verify advance below.`
     : o.shipping_status === "needs_confirmation" && o.status === "pending_confirmation" ? "Agree the delivery fee with the customer and set it below."
     : o.payment_method !== "cod" && o.payment_status !== "paid" && !closed && o.status === "pending_confirmation" ? `Check that the ${paymentLabel(o.payment_method, o.payment_provider).toLowerCase()} payment of ${formatPKR(o.total)} arrived${o.payment_reference ? ` (reference ${o.payment_reference})` : ""}, mark it paid below, then confirm the order.`
+    : closed && refundLeft > 0 ? `This order is closed but ${formatPKR(refundLeft)} of the customer's money is still held. Send it back, then record the refund below.`
     : o.status === "pending_confirmation" ? "Contact the customer and confirm the order."
     : o.status === "confirmed" ? "Start preparing the order."
-    : o.status === "processing" || o.status === "packed" ? "Send the order, then add the courier and tracking number."
+    : o.status === "processing" || o.status === "packed" ? "Add the courier and tracking number below, then mark the order Shipped so the customer gets them."
     : balanceDue ? `Record the ${formatPKR(o.total - o.advance_paid)} cash collected on delivery.`
     : null;
 
@@ -87,14 +88,18 @@ export default async function OrderAdmin({ params, searchParams }: { params: Pro
             </div>
           )}
           <p className="text-sm">Policy version: {o.shipping_policy_version}</p>
-          <form action={setPaymentAction} className="mt-2 flex gap-2">
-            <input type="hidden" name="id" value={o.id} />
-            <label className="sr-only" htmlFor="ps">Payment status</label>
-            <select id="ps" name="status" defaultValue={o.payment_status} className={`${inputCls} !mt-0`}>
-              {["unpaid", "pending", "partial", "paid", "refunded", "partially_refunded", "failed"].map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <Submit>Save</Submit>
-          </form>
+          {["partial", "refunded", "partially_refunded"].includes(o.payment_status) ? (
+            <p className="mt-2 text-sm" data-testid="payment-status-text">Payment status: <strong>{o.payment_status.replace(/_/g, " ")}</strong>. Changed by the advance, cash and refund forms.</p>
+          ) : (
+            <form action={setPaymentAction} className="mt-2 flex gap-2">
+              <input type="hidden" name="id" value={o.id} />
+              <label className="sr-only" htmlFor="ps">Payment status</label>
+              <select id="ps" name="status" defaultValue={o.payment_status} className={`${inputCls} !mt-0`}>
+                {["unpaid", "pending", "paid", "failed"].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Submit>Save</Submit>
+            </form>
+          )}
         </Card>
       </div>
 

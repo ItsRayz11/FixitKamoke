@@ -80,8 +80,8 @@ export default function CheckoutPage() {
   const previewTotal = Math.max(0, subtotal + (shipNow?.status === "quoted" ? shipNow.fee : 0) - saving);
   useEffect(() => {
     let cancelled = false;
-    getAdvanceView(previewTotal, city).then((a) => !cancelled && setAdv(a)).catch(() => !cancelled && setAdv(null));
-    return () => { cancelled = true; };
+    const t = setTimeout(() => { getAdvanceView(previewTotal, city).then((a) => !cancelled && setAdv(a)).catch(() => !cancelled && setAdv(null)); }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [previewTotal, city]);
   const advanceNow = payment === "cod" && adv && adv.advance > 0 && previewTotal > 0 ? adv : null;
 
@@ -182,6 +182,8 @@ export default function CheckoutPage() {
             {view?.lines.map((l) => <li key={l.productId} className="flex justify-between gap-2"><span>{l.quantity} × {l.name}{l.problem && <span className="block font-semibold text-danger">{l.problem}</span>}</span><span>{formatPKR(l.lineTotal)}</span></li>)}
           </ul>
           <dl className="mt-4 space-y-1 border-t border-line pt-3 text-sm">
+            {(view?.saleSavings ?? 0) > 0 && <div className="flex justify-between"><dt>Items at regular price</dt><dd data-testid="regular-total">{formatPKR(view!.regularTotal)}</dd></div>}
+            {(view?.saleSavings ?? 0) > 0 && <div className="flex justify-between text-ok"><dt>Sale savings</dt><dd data-testid="sale-savings">−{formatPKR(view!.saleSavings)}</dd></div>}
             <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatPKR(subtotal)}</dd></div>
             <div className="flex justify-between"><dt>Delivery</dt><dd data-testid="ship-fee">
               {!shipNow ? "Enter your city" : shipNow.status === "quoted" ? (fee === 0 ? "Free" : formatPKR(fee)) : shipNow.status === "needs_confirmation" ? "To be confirmed" : "Unavailable"}

@@ -1,8 +1,8 @@
+import crypto from "node:crypto";
 import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { releaseRestockedAlerts } from "@/lib/stock-alerts";
 import { queuePaymentConfirmed } from "@/lib/email/order-events";
-import { getAdvanceConfig } from "@/lib/payments/advance";
 import { advanceFor } from "@/lib/domain/advance";
 import { formatPKR } from "@/lib/domain/money";
 import { canTransition, CLOSED, RESTOCKS_ON, type OrderStatus } from "@/lib/domain/order-state";
@@ -62,27 +62,47 @@ export async function transitionOrder(db: Db, orderId: string, to: OrderStatus, 
 export async function setManualShippingFee(db: Db, orderId: string, fee: number, actor: string): Promise<void> {
   if (!Number.isSafeInteger(fee) || fee < 0 || fee > 100_000) throw new OrderAdminError("Enter a delivery fee between 0 and 100,000.");
   await db.tx(async (q) => {
-    const r = await q.query<{ status: string; shipping_status: string; subtotal: number; discount: number; payment_method: string }>(
-      "select status, shipping_status, subtotal, discount, payment_method from orders where id = $1 for update", [orderId]);
+    const r = await q.query<{ status: string; shipping_status: string; subtotal: number; discount: number; advance_required: number; advance_bps: number | null; advance_paid: number }>(
+      "select status, shipping_status, subtotal, discount, advance_required, advance_bps, advance_paid from orders where id = $1 for update", [orderId]);
     const o = r[0];
     if (!o) throw new OrderAdminError("Order not found.");
     if (o.status !== "pending_confirmation") throw new OrderAdminError("The delivery fee can only be changed before the order is confirmed.");
+    if (o.shipping_status !== "needs_confirmation") throw new OrderAdminError("This order's delivery fee was already confirmed and cannot be changed here.");
     const total = o.subtotal - o.discount + fee;
-    // The total changed, so the advance on a cash-on-delivery order is worked out again from the new total.
-    const cfg = await q.query<{ value: { zones?: { active?: boolean; advance?: boolean; cities: string[] }[] } }>("select value from store_settings where key = 'shipping'");
-    const city = (await q.query<{ city: string }>("select city from orders where id = $1", [orderId]))[0]?.city ?? "";
-    const zone = cfg[0]?.value.zones?.find((z) => z.active !== false && z.cities.some((c) => c.trim().toLowerCase() === city.trim().toLowerCase()));
-    const adv = o.payment_method === "cod" && zone?.advance !== false ? advanceFor(total, await getAdvanceConfig(q)) : { advance: 0, bps: null };
-    await q.query("update orders set shipping_fee = $2, total = $3, shipping_status = 'quoted', advance_required = $4, advance_bps = $5, updated_at = now() where id = $1", [orderId, fee, total, adv.advance, adv.bps]);
-    await audit(actor, "order_shipping_fee_set", "order", orderId, { fee }, q);
+    // The advance follows the terms this order was PLACED under, never today's rule:
+    //  - no advance at placement: still none, even if the owner has switched the rule on since;
+    //  - an advance already verified: left exactly as agreed (the larger balance is simply collected on delivery);
+    //  - a percentage advance: recalculated on the new total with the same percentage; a fixed one stays the same amount (never above the total).
+    let required = o.advance_required;
+    if (o.advance_required > 0 && o.advance_paid === 0) {
+      required = o.advance_bps !== null ? advanceFor(total, { enabled: true, mode: "percent", bps: o.advance_bps, fixed: 1, minOrder: 0 }).advance : Math.min(o.advance_required, total);
+    }
+    await q.query("update orders set shipping_fee = $2, total = $3, shipping_status = 'quoted', advance_required = $4, updated_at = now() where id = $1", [orderId, fee, total, required]);
+    await audit(actor, "order_shipping_fee_set", "order", orderId, { fee, advanceRequired: required }, q);
   });
 }
 
-export async function setPaymentStatus(db: Db, orderId: string, status: "unpaid" | "pending" | "partial" | "paid" | "refunded" | "partially_refunded" | "failed", actor: string): Promise<void> {
-  const r = await db.query<{ payment_status: string }>("update orders set payment_status = $2, updated_at = now() where id = $1 returning payment_status", [orderId, status]);
-  if (!r[0]) throw new OrderAdminError("Order not found.");
-  await audit(actor, "order_payment_status", "order", orderId, { status }, db);
-  if (status === "paid") await queuePaymentConfirmed(db, orderId);
+/**
+ * Manual payment status. Only the simple states can be set by hand. "Partial" comes from verifying an advance and the two refund
+ * states come from recording a refund, so the money records and the status can never disagree.
+ * Marking a cash-on-delivery order paid also records the cash that was still outstanding, so received money and refunds add up.
+ */
+export async function setPaymentStatus(db: Db, orderId: string, status: "unpaid" | "pending" | "paid" | "failed", actor: string): Promise<void> {
+  if (!["unpaid", "pending", "paid", "failed"].includes(status)) throw new OrderAdminError("That status is set by the advance, cash and refund forms, not by hand.");
+  await db.tx(async (q) => {
+    const r = await q.query<{ order_number: string; payment_method: string; payment_status: string; total: number; advance_required: number; advance_paid: number; balance_collected: number; refunded_amount: number }>(
+      "select order_number, payment_method, payment_status, total, advance_required, advance_paid, balance_collected, refunded_amount from orders where id = $1 for update", [orderId]);
+    const o = r[0];
+    if (!o) throw new OrderAdminError("Order not found.");
+    if (o.refunded_amount > 0) throw new OrderAdminError("Part of this order has been refunded, so its payment status can no longer be changed by hand.");
+    if (o.payment_method === "cod" && status !== "paid" && o.advance_paid > 0) throw new OrderAdminError("The advance on this order was verified. Use the refund form if money must go back.");
+    // Cash on delivery becomes paid only by recording the cash that was actually collected (or by a fully verified advance), so the
+    // money records always match what happened.
+    if (status === "paid" && o.payment_method === "cod") throw new OrderAdminError("For cash on delivery, use \u201cRecord cash collected\u201d after delivery. It marks the order paid and keeps the money records right.");
+    await q.query("update orders set payment_status = $2, updated_at = now() where id = $1", [orderId, status]);
+    await audit(actor, "order_payment_status", "order", orderId, { status, from: o.payment_status }, q);
+    if (status === "paid") await queuePaymentConfirmed(q, orderId);
+  });
 }
 
 /**
@@ -121,11 +141,16 @@ export async function setDispatchDetails(db: Db, orderId: string, carrier: strin
   const t = clean(trackingNumber, 60);
   if (!c && t) throw new OrderAdminError("Enter the courier name as well as the tracking number.");
   await db.tx(async (q) => {
-    const r = await q.query<{ status: OrderStatus; order_number: string }>("select status, order_number from orders where id = $1 for update", [orderId]);
+    const r = await q.query<{ status: OrderStatus; order_number: string; email: string | null }>("select status, order_number, email from orders where id = $1 for update", [orderId]);
     if (!r[0]) throw new OrderAdminError("Order not found.");
     if (CLOSED.includes(r[0].status)) throw new OrderAdminError("This order is closed.");
     await q.query("update orders set carrier = $2, tracking_number = $3, updated_at = now() where id = $1", [orderId, c || null, t || null]);
     await audit(actor, "order_dispatch_details", "order", orderId, { number: r[0].order_number, carrier: c || null, hasTracking: Boolean(t) }, q);
+    // If the parcel already left (the dispatch email had no courier details), tell the customer now. One email per distinct detail set.
+    if (c && ["shipped", "out_for_delivery"].includes(r[0].status) && r[0].email) {
+      await q.query("insert into notification_outbox(kind, recipient, payload, dedupe_key) values ('order_tracking_updated',$1,$2,$3) on conflict (dedupe_key) do nothing",
+        [r[0].email, JSON.stringify({ orderNumber: r[0].order_number }), `order_tracking_updated:${r[0].order_number}:${crypto.createHash("sha256").update(`${c}|${t}`).digest("hex").slice(0, 12)}`]);
+    }
   });
 }
 
@@ -136,13 +161,14 @@ export async function setDispatchDetails(db: Db, orderId: string, carrier: strin
 export async function recordBalanceCollected(db: Db, orderId: string, amount: number, actor: string): Promise<void> {
   if (!Number.isSafeInteger(amount) || amount <= 0) throw new OrderAdminError("Enter the cash you collected, in whole rupees.");
   await db.tx(async (q) => {
-    const r = await q.query<{ order_number: string; status: OrderStatus; payment_method: string; total: number; advance_required: number; advance_paid: number; balance_collected: number }>(
-      "select order_number, status, payment_method, total, advance_required, advance_paid, balance_collected from orders where id = $1 for update", [orderId]);
+    const r = await q.query<{ order_number: string; status: OrderStatus; payment_method: string; total: number; advance_required: number; advance_paid: number; balance_collected: number; refunded_amount: number }>(
+      "select order_number, status, payment_method, total, advance_required, advance_paid, balance_collected, refunded_amount from orders where id = $1 for update", [orderId]);
     const o = r[0];
     if (!o) throw new OrderAdminError("Order not found.");
     if (o.payment_method !== "cod") throw new OrderAdminError("Only cash-on-delivery orders have a balance to collect.");
     if (o.status !== "delivered") throw new OrderAdminError("Mark the order delivered first, then record the cash you collected.");
     if (o.balance_collected > 0) throw new OrderAdminError("The balance was already recorded.");
+    if (o.refunded_amount > 0) throw new OrderAdminError("A refund was already recorded on this order, so the cash cannot be recorded now. Ask the owner to check the order.");
     if (o.advance_paid < o.advance_required) throw new OrderAdminError("The advance was never verified. Verify it before recording the balance.");
     const due = o.total - o.advance_paid;
     if (amount !== due) throw new OrderAdminError(`The balance due is ${formatPKR(due)}. ${formatPKR(amount)} does not match. Check the amount with the courier.`);

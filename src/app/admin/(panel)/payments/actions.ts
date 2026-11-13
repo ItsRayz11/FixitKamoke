@@ -8,7 +8,7 @@ import { flash } from "@/lib/admin/flash";
 import { saveAdvanceConfig } from "@/lib/payments/advance";
 import type { AdvanceConfig } from "@/lib/domain/advance";
 import { getStore, saveStore } from "@/lib/settings";
-import { credentialsPresent, GATEWAYS, getGatewaySettings, hasVerifiedPayment, type GatewayId, type GatewayMode } from "@/lib/payments";
+import { leavesNoPaymentMethod, getPaymentOptions, credentialsPresent, GATEWAYS, getGatewaySettings, hasVerifiedPayment, type GatewayId, type GatewayMode } from "@/lib/payments";
 
 /** Moves a gateway between off, testing (staff only) and live. Going live needs a verified, matched test payment first. */
 export async function setGatewayModeAction(form: FormData) {
@@ -74,6 +74,7 @@ export async function toggleMethodAction(form: FormData) {
   const on = form.get("on") === "1";
   if (!["cod", "bank", "jazzcash", "easypaisa"].includes(method)) flash("/admin/payments", { error: "Unknown payment method." });
   const store = await getStore();
+  if (!on && leavesNoPaymentMethod(await getPaymentOptions(await getDb()), method)) flash("/admin/payments", { error: "Keep at least one payment method on. Turn another one on first, or customers could not place orders." });
   if (on && method === "jazzcash" && !store.jazzcashNumber?.trim()) flash("/admin/payments", { error: "Add the JazzCash number first (Configure), then switch it on." });
   if (on && method === "easypaisa" && !store.easypaisaNumber?.trim()) flash("/admin/payments", { error: "Add the Easypaisa number first (Configure), then switch it on." });
   const key = { cod: "codEnabled", bank: "bankTransferEnabled", jazzcash: "jazzcashEnabled", easypaisa: "easypaisaEnabled" }[method] as "codEnabled" | "bankTransferEnabled" | "jazzcashEnabled" | "easypaisaEnabled";

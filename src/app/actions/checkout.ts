@@ -22,8 +22,11 @@ import { ZodError } from "zod";
 const linesSchema = z.array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(50) })).max(50);
 
 export interface CartView {
-  lines: { productId: string; slug: string; name: string; image: string | null; unitPrice: number; quantity: number; stock: number; lineTotal: number; problem: string | null }[];
+  lines: { productId: string; slug: string; name: string; image: string | null; unitPrice: number; regularPrice: number; quantity: number; stock: number; lineTotal: number; problem: string | null }[];
   subtotal: number;
+  /** What the same items would cost with no sale prices, and the difference. Zero when nothing is on sale. */
+  regularTotal: number;
+  saleSavings: number;
   /** Product ids that no longer exist or are unpublished. */
   missing: string[];
 }
@@ -31,7 +34,7 @@ export interface CartView {
 /** Authoritative cart view: current prices and stock from the database. */
 export async function getCartView(input: unknown): Promise<CartView> {
   const parsed = linesSchema.safeParse(input);
-  if (!parsed.success) return { lines: [], subtotal: 0, missing: [] };
+  if (!parsed.success) return { lines: [], subtotal: 0, regularTotal: 0, saleSavings: 0, missing: [] };
   const products = await getProductsByIds(parsed.data.map((l) => l.productId));
   const byId = new Map(products.map((p) => [p.id, p]));
   const lines: CartView["lines"] = [];
@@ -41,9 +44,11 @@ export async function getCartView(input: unknown): Promise<CartView> {
     if (!p) { missing.push(l.productId); continue; }
     const unitPrice = effectivePrice(p);
     const problem = p.stock <= 0 ? "Out of stock" : l.quantity > p.stock ? `Only ${p.stock} available` : null;
-    lines.push({ productId: p.id, slug: p.slug, name: displayName(p.name, p.variantLabel), image: p.image?.url ?? null, unitPrice, quantity: l.quantity, stock: p.stock, lineTotal: unitPrice * l.quantity, problem });
+    lines.push({ productId: p.id, slug: p.slug, name: displayName(p.name, p.variantLabel), image: p.image?.url ?? null, unitPrice, regularPrice: p.price, quantity: l.quantity, stock: p.stock, lineTotal: unitPrice * l.quantity, problem });
   }
-  return { lines, subtotal: lines.reduce((s, l) => s + l.lineTotal, 0), missing };
+  const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+  const regularTotal = lines.reduce((s, l) => s + l.regularPrice * l.quantity, 0);
+  return { lines, subtotal, regularTotal, saleSavings: regularTotal - subtotal, missing };
 }
 
 export type ShippingView =

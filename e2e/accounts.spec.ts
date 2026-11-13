@@ -205,8 +205,8 @@ test("verified-purchase review: only after delivery, hidden until approved", asy
   for (const s of ["Confirmed", "Being prepared", "Shipped", "Delivered"]) {
     await op.getByLabel("Move to").selectOption({ label: s });
     await op.getByRole("button", { name: "Update" }).click();
-    await expect(op.getByText("Status updated.")).toBeVisible();
-    await op.waitForLoadState("networkidle");
+    // Wait for the heading to show the NEW status (a "Status updated." banner can still be on screen from the previous step).
+    await expect(op.getByRole("heading", { level: 1 })).toContainText(s);
   }
 
   await page.goto("/product/demo-clear-case");

@@ -97,6 +97,11 @@ export function renderOrderEmail(kind: string, d: OrderEmailData, ctx: EmailCont
       intro: `Order <strong>${escapeHtml(d.orderNumber)}</strong> is on its way, ${first}.${d.carrier ? ` Courier: ${escapeHtml(d.carrier)}${d.trackingNumber ? `, tracking number: <strong>${escapeHtml(d.trackingNumber)}</strong>` : ""}.` : ""}${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay on delivery.` : ""}`,
       plain: `Your order ${d.orderNumber} is on its way.${d.carrier ? ` Courier: ${d.carrier}${d.trackingNumber ? `, tracking number: ${d.trackingNumber}` : ""}.` : ""}${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay on delivery.` : ""}`,
     },
+    order_tracking_updated: {
+      subject: `Courier details for order ${d.orderNumber}`,
+      intro: `Your order <strong>${escapeHtml(d.orderNumber)}</strong> is with the courier${d.carrier ? `: <strong>${escapeHtml(d.carrier)}</strong>${d.trackingNumber ? `, tracking number <strong>${escapeHtml(d.trackingNumber)}</strong>` : ""}` : ""}.`,
+      plain: `Your order ${d.orderNumber} is with the courier${d.carrier ? `: ${d.carrier}${d.trackingNumber ? `, tracking number ${d.trackingNumber}` : ""}` : ""}.`,
+    },
     order_out_for_delivery: {
       subject: `Your order ${d.orderNumber} is out for delivery`,
       intro: `Order <strong>${escapeHtml(d.orderNumber)}</strong> is out for delivery today, ${first}.${d.paymentMethod === "cod" ? ` Please keep ${formatPKR(d.total - (d.advancePaid ?? 0))} ready to pay.` : ""}`,
@@ -174,8 +179,8 @@ If you did not ask for this, ignore this email.` };
 }
 
 export function renderStaffAlert(kind: string, ref: string, summary: string, ctx: EmailContext): Rendered {
-  const label = kind === "order" ? "New order" : kind === "repair" ? "New repair request" : "New message";
-  const path = kind === "order" ? "/admin/orders" : kind === "repair" ? "/admin/repairs" : "/admin/messages";
+  const label = kind === "order" ? "New order" : kind === "repair" ? "New repair request" : kind === "stock" ? "Low stock" : "New message";
+  const path = kind === "order" ? "/admin/orders" : kind === "repair" ? "/admin/repairs" : kind === "stock" ? "/admin/inventory?low=1" : "/admin/messages";
   const subject = `${label} ${ref}`;
   const link = `${ctx.baseUrl}${path}`;
   const html = shell(ctx, subject, p(`<strong>${escapeHtml(label)}</strong> ${escapeHtml(ref)}`) + p(escapeHtml(summary)) + btn(link, "Open in admin"));

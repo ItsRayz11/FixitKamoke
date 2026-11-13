@@ -43,7 +43,7 @@ export async function setFeeAction(form: FormData) {
 export async function setPaymentAction(form: FormData) {
   const admin = await assertAdmin("staff");
   const id = uuid.safeParse(form.get("id"));
-  const st = z.enum(["unpaid", "pending", "partial", "paid", "refunded", "partially_refunded", "failed"]).safeParse(form.get("status"));
+  const st = z.enum(["unpaid", "pending", "paid", "failed"]).safeParse(form.get("status"));
   if (!id.success || !st.success) flash("/admin/orders", { error: "Invalid request." });
   try {
     await setPaymentStatus(await getDb(), id.data!, st.data!, admin.email);
@@ -51,6 +51,7 @@ export async function setPaymentAction(form: FormData) {
     if (e instanceof OrderAdminError) flash(`/admin/orders/${id.data}`, { error: e.message });
     throw e;
   }
+  sendQueuedEmailSoon();
   flash(`/admin/orders/${id.data}`, { ok: "Payment status updated." });
 }
 
@@ -87,7 +88,7 @@ async function run(form: FormData, ok: string, fn: (db: Awaited<ReturnType<typeo
 }
 
 export async function dispatchDetailsAction(form: FormData) {
-  await run(form, "Courier details saved.", (db, id, who) => setDispatchDetails(db, id, String(form.get("carrier") ?? ""), String(form.get("trackingNumber") ?? ""), who));
+  await run(form, "Courier details saved.", (db, id, who) => setDispatchDetails(db, id, String(form.get("carrier") ?? ""), String(form.get("trackingNumber") ?? ""), who), sendQueuedEmailSoon);
 }
 export async function balanceCollectedAction(form: FormData) {
   await run(form, "Cash collection recorded. The order is now fully paid.", (db, id, who) => recordBalanceCollected(db, id, whole(form.get("amount")), who));
