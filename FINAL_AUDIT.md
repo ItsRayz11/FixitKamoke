@@ -95,8 +95,7 @@ Design decision, not a bug: a customer can approve an *estimate* on the repair p
 Released on 2026-11-14. Before release a full local backup of the live database was taken (30 tables, 103 rows, verified, stored outside the repository), then migrations 011 to 016 were applied to production through the repository's own runner and verified (columns, constraints, row-level security, row counts unchanged, the existing order intact). The 12 demo products and the DEMO10 coupon added by the test run were hidden (unpublished and switched off, not deleted). Then the branch was merged into master. See docs/MIGRATION_REVIEW_011_016.md.
 
 ## I. Remaining limitations (honest list)
-- Customer photo upload on repair requests: not built (needs a public upload endpoint with abuse controls).
-- COD advance by product, category or customer risk rules: not built (zone and minimum-order rules exist).
+- Built after the first release (migration 017): receipt pictures on transfer and advance orders, up to 3 pictures on repair requests, and COD advance exceptions per product or category (Admin > Payments > Cash on delivery). Pictures need the Cloudinary variables on the host; without them the upload buttons do not appear. Uploads go from the browser to the image host with a short-lived signed ticket, are limited per visitor, shrunk in the browser, and only links in the shop's own folders are accepted. The links are unguessable but not behind a login. Not tested with a real Cloudinary account (browser tests answer the upload with a local stand-in). Not built: advance rules by customer risk.
 - Advance paid through an online gateway: not built; advances are by transfer or wallet.
 - Coupon rules by shipping zone: not built. Stacking is one switch (with or without sale prices), not a full rule table.
 - Courier integration, label printing, automatic tracking: not built; courier and tracking are entered by hand.
