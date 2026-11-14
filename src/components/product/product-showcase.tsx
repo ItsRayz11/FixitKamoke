@@ -12,6 +12,7 @@ import { SpinViewer } from "@/components/product/spin-viewer";
 import { StockAlertForm } from "@/components/product/stock-alert-form";
 import { displayName } from "@/lib/domain/display";
 import { formatPKR } from "@/lib/domain/money";
+import { markdownToText } from "@/lib/markdown";
 
 export interface ShowcaseVariant {
   id: string; slug: string; label: string; hex: string | null; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number;
@@ -174,7 +175,7 @@ export function ProductShowcase({ base, variants, required, specsSlot, afterBuyS
         {/* 5: name and concise description */}
         {base.brand && <p className="text-xs font-semibold uppercase tracking-widest text-muted">{base.brand}</p>}
         <h1 className="mt-1 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{base.name}</h1>
-        {base.description && <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{base.description}</p>}
+        {base.description && <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{markdownToText(base.description, 200)}</p>}
 
         {/* 6: price and verified availability */}
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">

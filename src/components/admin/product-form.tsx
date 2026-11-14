@@ -7,17 +7,21 @@ import type { Category } from "@/lib/catalog";
 import { ImageUploader } from "./image-uploader";
 import { ImagePreviews } from "./image-previews";
 import { percentOff, SALE_LENGTH_DAYS } from "@/lib/domain/sale";
+import { MarkdownField } from "./markdown-field";
+import type { ProductPolicy } from "@/lib/policies";
 
 export interface ProductFormValues {
   id?: string; name: string; slug: string; brand: string; categoryId: string; description: string; price: number | ""; salePrice: number | ""; saleStarts: string; saleEnds: string; saleTimer: boolean;
   sku: string; stock: number | ""; status: "draft" | "active" | "archived"; seoTitle: string; seoDescription: string; warranty: string; weight: number | ""; specs: string; devices: string; images: string; spin: string;
   variantGroup: string; variantLabel: string; variantHex: string; variantRequired: boolean;
+  returnPolicyId: string; warrantyPolicyId: string;
 }
 
 export const emptyProduct: ProductFormValues = {
   name: "", slug: "", brand: "", categoryId: "", description: "", price: "", salePrice: "", saleStarts: "", saleEnds: "", saleTimer: false, sku: "", stock: 0, status: "draft", seoTitle: "", seoDescription: "",
   warranty: "", weight: "", specs: "", devices: "", images: "", spin: "",
   variantGroup: "", variantLabel: "", variantHex: "", variantRequired: false,
+  returnPolicyId: "", warrantyPolicyId: "",
 };
 
 const TABS = [
@@ -30,12 +34,13 @@ const TABS = [
   { id: "publishing", label: "Publishing" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+export const isTabId = (t: unknown): t is TabId => TABS.some((x) => x.id === t);
 
 /** When the server refuses a save, jump to the tab that holds the problem so the owner sees it straight away. */
 function tabForError(msg: string): TabId | null {
   const m = msg.toLowerCase();
   if (/sale|price/.test(m)) return "pricing";
-  if (/stock|weight|warranty/.test(m)) return "inventory";
+  if (/stock|weight|warranty|policy/.test(m)) return "inventory";
   if (/image|photo|turntable|frame|https/.test(m)) return "media";
   if (/finish|colour|color/.test(m)) return "variants";
   if (/page title|page description/.test(m)) return "seo";
@@ -55,10 +60,10 @@ export interface SaleInfo {
 
 const rs = (n: number) => `Rs. ${n.toLocaleString("en-PK", { maximumFractionDigits: 2 })}`;
 
-export function ProductForm({ v, categories, uploads = false, saleInfo }: { v: ProductFormValues; categories: Category[]; uploads?: boolean; saleInfo?: SaleInfo }) {
+export function ProductForm({ v, categories, uploads = false, saleInfo, policies = [], initialTab = "basics" }: { v: ProductFormValues; categories: Category[]; uploads?: boolean; saleInfo?: SaleInfo; policies?: ProductPolicy[]; initialTab?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const [tab, setTab] = useState<TabId>("basics");
+  const [tab, setTab] = useState<TabId>(isTabId(initialTab) ? initialTab : "basics"); // a saved product reopens on the tab you were on
   const [price, setPrice] = useState(String(v.price));
   const [sale, setSale] = useState(String(v.salePrice));
   const [length, setLength] = useState("");
@@ -97,6 +102,7 @@ export function ProductForm({ v, categories, uploads = false, saleInfo }: { v: P
     <form onSubmit={onSubmit} noValidate className="max-w-3xl pb-24">
       {error && <p role="alert" className="mb-3 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm font-semibold text-danger">{error}</p>}
       {v.id && <input type="hidden" name="id" value={v.id} />}
+      <input type="hidden" name="tab" value={tab} />
 
       <div role="tablist" aria-label="Product sections" className="flex flex-wrap gap-1 border-b border-line">
         {TABS.map((t, i) => (
@@ -120,7 +126,7 @@ export function ProductForm({ v, categories, uploads = false, saleInfo }: { v: P
             </Field>
             <Field label="SKU" id="sku"><input id="sku" name="sku" defaultValue={v.sku} className={inputCls} /></Field>
           </div>
-          <Field label="Description" id="description"><textarea id="description" name="description" rows={4} defaultValue={v.description} className={area} /></Field>
+          <MarkdownField id="description" name="description" label="Description" rows={8} maxLength={4000} defaultValue={v.description} />
           <Field label="Specifications" id="specs" hint="One per line: Name: value. Only facts you have checked."><textarea id="specs" name="specs" rows={4} defaultValue={v.specs} className={`${area} font-mono`} /></Field>
           <Field label="Compatible devices" id="devices" hint="Comma or line separated."><textarea id="devices" name="devices" rows={2} defaultValue={v.devices} className={area} /></Field>
         </div>
@@ -200,7 +206,23 @@ export function ProductForm({ v, categories, uploads = false, saleInfo }: { v: P
             <Field label="Stock quantity" id="stock"><input id="stock" name="stock" inputMode="numeric" required defaultValue={v.stock} className={inputCls} /></Field>
             <Field label="Weight (grams)" id="weight"><input id="weight" name="weight" inputMode="numeric" defaultValue={v.weight} className={inputCls} /></Field>
           </div>
-          <Field label="Warranty information" id="warranty" hint="Only wording the owner has approved."><input id="warranty" name="warranty" defaultValue={v.warranty} className={inputCls} /></Field>
+          <Field label="Warranty information" id="warranty" hint="A short line of your own. Shown when no warranty policy is chosen below."><input id="warranty" name="warranty" defaultValue={v.warranty} className={inputCls} /></Field>
+          <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+            {(["return", "warranty"] as const).map((kind) => {
+              const list = policies.filter((p) => p.kind === kind);
+              const field = kind === "return" ? "returnPolicyId" : "warrantyPolicyId";
+              const current = kind === "return" ? v.returnPolicyId : v.warrantyPolicyId;
+              const def = list.find((p) => p.isDefault);
+              return (
+                <Field key={kind} label={kind === "return" ? "Return policy" : "Warranty policy"} id={field} hint={list.length === 0 ? "None written yet. Add them under Catalogue > Return & warranty." : "Choose which policy customers see on this product."}>
+                  <select id={field} name={field} defaultValue={current} className={inputCls}>
+                    <option value="">{def ? `Default (${def.name})` : "None"}</option>
+                    {list.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </Field>
+              );
+            })}
+          </div>
         </div>
 
         <div {...panel("media")}>

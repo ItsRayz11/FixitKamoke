@@ -4,7 +4,8 @@ export interface CloudinaryConfig { cloudName: string; apiKey: string; apiSecret
 
 /** Upload is available only when all three settings exist on the server. The secret never leaves the server. */
 export function cloudinaryConfig(env: NodeJS.ProcessEnv = process.env): CloudinaryConfig | null {
-  const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim();
+  // A cloud name is letters, digits, "-" and "_". A pasted "@name", quotes or a trailing slash would make Cloudinary answer "Invalid cloud_name".
+  const cloudName = env.CLOUDINARY_CLOUD_NAME?.trim().replace(/^[@\s"'/]+|[\s"'/]+$/g, "");
   const apiKey = env.CLOUDINARY_API_KEY?.trim();
   const apiSecret = env.CLOUDINARY_API_SECRET?.trim();
   return cloudName && apiKey && apiSecret ? { cloudName, apiKey, apiSecret } : null;

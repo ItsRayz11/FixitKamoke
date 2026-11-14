@@ -83,7 +83,7 @@ test("the owner configures delivery, a category and a product; a guest buys it; 
   await page.getByLabel("Product name").fill("Prod Test Charger");
   await page.getByLabel("Category").selectOption({ label: "Chargers" });
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("1500");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("1500");
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("3");
   await page.getByRole("tab", { name: "Publishing" }).click();

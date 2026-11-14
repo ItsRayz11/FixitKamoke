@@ -27,6 +27,7 @@ const NAV: (NavItem & { min: "staff" | "manager" | "owner"; perm?: FinancePerm }
   { href: "/admin/categories", label: "Categories", group: "Catalogue", min: "manager" },
   { href: "/admin/inventory", label: "Inventory", group: "Catalogue", min: "manager" },
   { href: "/admin/coupons", label: "Discounts", group: "Catalogue", min: "manager" },
+  { href: "/admin/policies", label: "Return & warranty", group: "Catalogue", min: "manager" },
   { href: "/admin/reviews", label: "Reviews", group: "Catalogue", min: "manager" },
   { href: "/admin/shipping", label: "Shipping", group: "Operations", min: "manager" },
   { href: "/admin/payments", label: "Payments", group: "Operations", min: "owner" },

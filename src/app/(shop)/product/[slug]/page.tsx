@@ -15,6 +15,8 @@ import { approvedReviews, canReview } from "@/lib/reviews";
 import { postsForProduct } from "@/lib/blog";
 import { getShippingConfig } from "@/lib/orders/create-order";
 import { formatPKR } from "@/lib/domain/money";
+import { markdownToText, renderMarkdown } from "@/lib/markdown";
+import { policiesForProduct } from "@/lib/policies";
 import { KeepForm } from "@/components/admin/keep-form";
 import { toggleWishlistAction } from "../../account/actions";
 import { submitReviewAction } from "./actions";
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = p.seoTitle?.trim() || (p.variantLabel ? `${p.name} — ${p.variantLabel}` : p.name);
   return {
     title,
-    description: p.seoDescription?.trim() || p.description.slice(0, 155) || `${p.name} at Fixit.`,
+    description: p.seoDescription?.trim() || markdownToText(p.description, 155) || `${p.name} at Fixit.`,
     alternates: { canonical: `/product/${p.slug}` },
     openGraph: { title, images: p.image ? [p.image.url] : undefined },
   };
@@ -41,7 +43,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   if (!p) notFound();
   const db = await getDb();
   const customer = await getCustomer();
-  const [images, relatedRaw, compatibleRaw, variants, guides, shipping, reviews, reviewState, saved] = await Promise.all([
+  const [images, relatedRaw, compatibleRaw, variants, guides, shipping, reviews, reviewState, saved, policy] = await Promise.all([
     getProductImages(p.id),
     relatedProducts(p),
     compatibleProducts(p),
@@ -51,6 +53,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     approvedReviews(db, p.id),
     customer ? canReview(db, customer.id, p.id) : Promise.resolve(null),
     customer ? db.query("select 1 from wishlist_items where customer_id = $1 and product_id = $2", [customer.id, p.id]).then((r) => r.length > 0) : Promise.resolve(false),
+    policiesForProduct(p.id),
   ]);
   const spinMap = await getSpinFrames([p.id, ...variants.map((v) => v.id)]); // turntable frames, one set per finish
   const url = `${site.baseUrl}/product/${p.slug}`;
@@ -66,7 +69,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
     sku: p.sku ?? undefined,
     brand: p.brand ? { "@type": "Brand", name: p.brand } : undefined,
     color: p.variantLabel ?? undefined,
-    description: p.description || undefined,
+    description: markdownToText(p.description, 500) || undefined,
     image: images.length ? images.map((i) => i.url) : undefined,
     offers: {
       "@type": "Offer",
@@ -145,11 +148,35 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         </div>
         <div className="p-3.5">
           <h2 className="font-bold">Returns</h2>
-          <p className="mt-1 text-muted">Read how returns and refunds work in our <Link href="/policies/returns" className="font-semibold text-accent underline">returns policy</Link>.</p>
+          {policy.return ? (
+            <details className="group mt-1">
+              <summary className="cursor-pointer list-none">
+                <span className="font-semibold">{policy.return.name}</span>
+                {policy.return.summary && <span className="block text-muted">{policy.return.summary}</span>}
+                <span className="mt-1 inline-flex min-h-8 items-center text-xs font-semibold text-accent underline group-open:hidden">Read the full return policy</span>
+              </summary>
+              <div className="mt-2 text-muted [&>*:first-child]:mt-0">{renderMarkdown(policy.return.body)}</div>
+              <p className="mt-2 text-xs">See also our <Link href="/policies/returns" className="font-semibold text-accent underline">returns and refunds page</Link>.</p>
+            </details>
+          ) : (
+            <p className="mt-1 text-muted">Read how returns and refunds work in our <Link href="/policies/returns" className="font-semibold text-accent underline">returns policy</Link>.</p>
+          )}
         </div>
         <div className="p-3.5">
           <h2 className="font-bold">Warranty</h2>
-          <p className="mt-1 text-muted">{p.warrantyInfo ?? "No warranty has been listed for this item."} See the <Link href="/policies/warranty" className="font-semibold text-accent underline">warranty policy</Link>.</p>
+          {policy.warranty ? (
+            <details className="group mt-1">
+              <summary className="cursor-pointer list-none">
+                <span className="font-semibold">{policy.warranty.name}</span>
+                {(policy.warranty.summary ?? p.warrantyInfo) && <span className="block text-muted">{policy.warranty.summary ?? p.warrantyInfo}</span>}
+                <span className="mt-1 inline-flex min-h-8 items-center text-xs font-semibold text-accent underline group-open:hidden">Read the full warranty policy</span>
+              </summary>
+              <div className="mt-2 text-muted [&>*:first-child]:mt-0">{renderMarkdown(policy.warranty.body)}</div>
+              <p className="mt-2 text-xs">See also our <Link href="/policies/warranty" className="font-semibold text-accent underline">warranty page</Link>.</p>
+            </details>
+          ) : (
+            <p className="mt-1 text-muted">{p.warrantyInfo ?? "No warranty has been listed for this item."} See the <Link href="/policies/warranty" className="font-semibold text-accent underline">warranty policy</Link>.</p>
+          )}
         </div>
       </section>
       <div className="mt-3 flex flex-wrap items-center gap-x-5">
@@ -179,6 +206,13 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
         specsSlot={specsSlot}
         afterBuySlot={afterBuySlot}
       />
+
+      {p.description.trim() && (
+        <section className="mt-8 rounded-[var(--radius-md)] border border-line bg-surface p-4 sm:p-5" aria-labelledby="about-item" data-testid="product-description">
+          <h2 id="about-item" className="text-lg font-bold">About this product</h2>
+          <div className="text-[0.9375rem] [&>*:first-child]:mt-3 [&_h2]:!mt-5 [&_h2]:!text-base [&_h3]:!mt-4 [&_h3]:!text-base">{renderMarkdown(p.description)}</div>
+        </section>
+      )}
 
       {hasMore && (
         <details className="group mt-8 rounded-[var(--radius-md)] border border-line bg-surface">

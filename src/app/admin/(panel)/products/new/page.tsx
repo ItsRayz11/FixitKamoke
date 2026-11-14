@@ -1,6 +1,7 @@
 import { cloudinaryConfig } from "@/lib/cloudinary";
 import { requireAdmin } from "@/lib/auth/session";
 import { listCategories } from "@/lib/catalog";
+import { listPolicies } from "@/lib/policies";
 import { ProductForm, emptyProduct } from "@/components/admin/product-form";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default async function NewProduct() {
   return (
     <div>
       <h1 className="mb-4 text-2xl font-extrabold">Add product</h1>
-      <ProductForm v={emptyProduct} categories={await listCategories()} uploads={cloudinaryConfig() !== null} />
+      <ProductForm policies={await listPolicies()} v={emptyProduct} categories={await listCategories()} uploads={cloudinaryConfig() !== null} />
     </div>
   );
 }

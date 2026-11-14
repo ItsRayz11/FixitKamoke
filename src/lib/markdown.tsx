@@ -29,6 +29,20 @@ export function renderInline(text: string, keyPrefix = "i"): ReactNode[] {
   return out;
 }
 
+/** Plain text of some Markdown (no symbols), cut to `max` characters at a word. For short blurbs, meta descriptions and structured data. */
+export function markdownToText(src: string, max = 160): string {
+  const t = src.replace(/\r\n?/g, "\n")
+    .replace(/\[([^\]]+)\]\([^)\s]+\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*(?:[-*]|\d+\.)\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*|\*([^*]+)\*/g, "$1$2")
+    .replace(/[#*`_]+/g, " ")
+    .replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 25)).trimEnd()}…`;
+}
+
 export function renderMarkdown(src: string): ReactNode[] {
   const blocks: ReactNode[] = [];
   const lines = src.replace(/\r\n?/g, "\n").split("\n");

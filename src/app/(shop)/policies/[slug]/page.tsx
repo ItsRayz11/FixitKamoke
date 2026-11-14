@@ -7,6 +7,7 @@ import { getStore } from "@/lib/settings";
 import { getDb } from "@/lib/db";
 import { getShippingConfig } from "@/lib/orders/create-order";
 import { formatPKR } from "@/lib/domain/money";
+import { listPolicies } from "@/lib/policies";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
   const store = await getStore();
   const specifics = policy.specifics ? store[policy.specifics] : null;
   const shipping = policy.slug === "shipping" ? await getShippingConfig(await getDb()) : null;
+  const kind = policy.slug === "returns" ? "return" : policy.slug === "warranty" ? "warranty" : null;
+  const owned = kind ? await listPolicies(kind) : [];
 
   return (
     <div className="container-x max-w-3xl py-10">
@@ -66,6 +69,22 @@ export default async function PolicyPage({ params }: { params: Promise<{ slug: s
         <section aria-labelledby="specific" className="mt-8">
           <h2 id="specific" className="text-xl font-bold">Specific terms</h2>
           {specifics ? renderMarkdown(specifics) : <p className="mt-3 text-muted">These terms are to be confirmed by Fixit. Please contact us if you need them before ordering.</p>}
+        </section>
+      )}
+
+      {owned.length > 0 && (
+        <section aria-labelledby="owned" className="mt-8">
+          <h2 id="owned" className="text-xl font-bold">{kind === "return" ? "Return policies by product" : "Warranty policies by product"}</h2>
+          <p className="mt-1 text-sm text-muted">Each product page shows which of these applies to it.</p>
+          <div className="mt-3 space-y-4">
+            {owned.map((o) => (
+              <article key={o.id} className="rounded-[var(--radius-md)] border border-line bg-surface p-4">
+                <h3 className="font-bold">{o.name}</h3>
+                {o.summary && <p className="text-sm text-muted">{o.summary}</p>}
+                <div className="text-sm [&>*:first-child]:mt-2">{renderMarkdown(o.body)}</div>
+              </article>
+            ))}
+          </div>
         </section>
       )}
 

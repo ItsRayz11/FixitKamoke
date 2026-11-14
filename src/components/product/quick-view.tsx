@@ -6,6 +6,7 @@ import { Price } from "@/components/ui/price";
 import { StockBadge } from "@/components/product/stock-badge";
 import { AddToCartButton } from "@/components/cart/add-to-cart";
 import { optimizeImageUrl } from "@/lib/domain/images";
+import { markdownToText } from "@/lib/markdown";
 
 export interface QuickViewProduct {
   id: string; slug: string; name: string; brand: string | null; description: string; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number;
@@ -14,7 +15,7 @@ export interface QuickViewProduct {
 
 /** A fast look at a product without leaving the list: photo, real price, real stock, and the buy button. Finishes go to the full page. */
 export function QuickView({ p }: { p: QuickViewProduct }) {
-  const blurb = p.description.length > 220 ? `${p.description.slice(0, 217).trimEnd()}…` : p.description;
+  const blurb = markdownToText(p.description, 220);
   return (
     <Sheet
       title={p.name}

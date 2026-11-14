@@ -1,5 +1,6 @@
 import { instantToPktDate, saleStatus, formatPkt, longDuration } from "@/lib/domain/sale";
 import { financePermsOf } from "@/lib/finance/perms";
+import { listPolicies } from "@/lib/policies";
 import { cloudinaryConfig } from "@/lib/cloudinary";
 import { notFound } from "next/navigation";
 import { requireAdmin, hasRole } from "@/lib/auth/session";
@@ -16,10 +17,10 @@ interface Row {
   id: string; name: string; slug: string; brand: string | null; category_id: string | null; description: string; price: number; sale_price: number | null; sale_starts_at: string | null; sale_ends_at: string | null;
   sku: string | null; stock: number; published: boolean; warranty_info: string | null; weight_grams: number | null; specs: Record<string, string>; compatible_devices: string[];
   variant_group: string | null; variant_label: string | null; variant_hex: string | null; variant_required: boolean;
-  archived: boolean; sale_timer: boolean; avg_cost: string | null; unvalued_units: number; seo_title: string | null; seo_description: string | null;
+  archived: boolean; return_policy_id: string | null; warranty_policy_id: string | null; sale_timer: boolean; avg_cost: string | null; unvalued_units: number; seo_title: string | null; seo_description: string | null;
 }
 
-export default async function EditProduct({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
+export default async function EditProduct({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string; tab?: string }> }) {
   const admin = await requireAdmin("manager");
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -50,12 +51,14 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
         categories={await listCategories()}
         uploads={cloudinaryConfig() !== null}
         saleInfo={saleInfo}
+        policies={await listPolicies()}
+        initialTab={sp.tab}
         v={{
           id: p.id, name: p.name, slug: p.slug, brand: p.brand ?? "", categoryId: p.category_id ?? "", description: p.description, price: p.price, salePrice: p.sale_price ?? "", saleStarts: instantToPktDate(p.sale_starts_at), saleEnds: instantToPktDate(p.sale_ends_at), saleTimer: p.sale_timer,
           sku: p.sku ?? "", stock: p.stock, status: p.archived ? "archived" : p.published ? "active" : "draft", seoTitle: p.seo_title ?? "", seoDescription: p.seo_description ?? "", warranty: p.warranty_info ?? "", weight: p.weight_grams ?? "",
           specs: Object.entries(p.specs ?? {}).map(([k, v]) => `${k}: ${v}`).join("\n"), devices: (p.compatible_devices ?? []).join(", "),
           images: imgs.map((i) => `${i.url}|${i.alt}`).join("\n"), spin: spin.map((s) => s.url).join("\n"),
-          variantGroup: p.variant_group ?? "", variantLabel: p.variant_label ?? "", variantHex: p.variant_hex ?? "", variantRequired: p.variant_required,
+          variantGroup: p.variant_group ?? "", variantLabel: p.variant_label ?? "", variantHex: p.variant_hex ?? "", variantRequired: p.variant_required, returnPolicyId: p.return_policy_id ?? "", warrantyPolicyId: p.warranty_policy_id ?? "",
         }}
       />
       {hasRole(admin, "owner") && (

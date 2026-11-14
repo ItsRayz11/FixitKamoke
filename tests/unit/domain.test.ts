@@ -155,3 +155,21 @@ describe("resolveSaleWindow and the countdown", () => {
     expect(formatCountdown(-50)).toBe("00:00:00");
   });
 });
+
+describe("description text and cloud settings", () => {
+  it("turns Markdown into a plain blurb", async () => {
+    const { markdownToText } = await import("@/lib/markdown");
+    const md = "## U38 Earbuds\n\nEnjoy **wireless** audio.\n\n### Key Features\n- **Touch:** controls\n- [Policy](/policies/returns) here";
+    expect(markdownToText(md, 500)).toBe("U38 Earbuds Enjoy wireless audio. Key Features Touch: controls Policy here");
+    const cut = markdownToText("word ".repeat(100), 40);
+    expect(cut.length).toBeLessThanOrEqual(40);
+    expect(cut.endsWith("…")).toBe(true);
+  });
+  it("cleans a cloud name that was pasted with an @ or quotes", async () => {
+    const { cloudinaryConfig } = await import("@/lib/cloudinary");
+    for (const raw of ["@mjorv0s6", " mjorv0s6 ", '"mjorv0s6"', "mjorv0s6/"]) {
+      expect(cloudinaryConfig({ CLOUDINARY_CLOUD_NAME: raw, CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s" } as unknown as NodeJS.ProcessEnv)?.cloudName).toBe("mjorv0s6");
+    }
+    expect(cloudinaryConfig({ CLOUDINARY_CLOUD_NAME: "@", CLOUDINARY_API_KEY: "k", CLOUDINARY_API_SECRET: "s" } as unknown as NodeJS.ProcessEnv)).toBeNull();
+  });
+});

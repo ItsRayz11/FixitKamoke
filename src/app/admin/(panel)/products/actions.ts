@@ -36,6 +36,8 @@ const schema = z.object({
   saleEnds: z.string().trim().max(10),
   saleLength: z.string().trim().max(3),
   saleTimer: z.boolean(),
+  returnPolicyId: z.string().trim().refine((v) => v === "" || /^[0-9a-f-]{36}$/i.test(v), "Choose a return policy from the list.").transform((v) => v || null),
+  warrantyPolicyId: z.string().trim().refine((v) => v === "" || /^[0-9a-f-]{36}$/i.test(v), "Choose a warranty policy from the list.").transform((v) => v || null),
   sku: optText,
   stock: int("Stock"),
   status: z.enum(["draft", "active", "archived"]),
@@ -108,7 +110,7 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   const id = String(form.get("id") ?? "");
   const parsed = schema.safeParse({
     name: form.get("name"), slug: form.get("slug") ?? "", brand: form.get("brand") ?? "", categoryId: form.get("categoryId") ?? "",
-    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", saleStarts: form.get("saleStarts") ?? "", saleEnds: form.get("saleEnds") ?? "", saleLength: form.get("saleLength") ?? "", saleTimer: form.get("saleTimer") === "on", sku: form.get("sku") ?? "",
+    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", saleStarts: form.get("saleStarts") ?? "", saleEnds: form.get("saleEnds") ?? "", saleLength: form.get("saleLength") ?? "", saleTimer: form.get("saleTimer") === "on", returnPolicyId: form.get("returnPolicyId") ?? "", warrantyPolicyId: form.get("warrantyPolicyId") ?? "", sku: form.get("sku") ?? "",
     stock: form.get("stock"), status: form.get("status") ?? (form.get("published") === "on" ? "active" : "draft"), seoTitle: form.get("seoTitle") ?? "", seoDescription: form.get("seoDescription") ?? "", warranty: form.get("warranty") ?? "", weight: form.get("weight") ?? "",
     specs: form.get("specs") ?? "", devices: form.get("devices") ?? "", images: form.get("images") ?? "", spin: form.get("spin") ?? "",
     variantGroup: form.get("variantGroup") ?? "", variantLabel: form.get("variantLabel") ?? "", variantHex: form.get("variantHex") ?? "",
@@ -148,6 +150,12 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   const devices = d.devices.split(/[\n,]/).map((x) => x.trim()).filter(Boolean).slice(0, 60);
   const db = await getDb();
 
+  for (const [pid, kind] of [[d.returnPolicyId, "return"], [d.warrantyPolicyId, "warranty"]] as const) {
+    if (!pid) continue;
+    const ok = await db.query("select 1 from product_policies where id = $1 and kind = $2", [pid, kind]);
+    if (ok.length === 0) return fail(`That ${kind} policy no longer exists. Choose another policy.`);
+  }
+
   let savedId = id;
   try {
     await db.tx(async (q) => {
@@ -156,16 +164,16 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
         if (!prev[0]) throw new Error("Product not found");
         await q.query(
           `update products set name=$2, slug=$3, brand=$4, category_id=$5, description=$6, price=$7, sale_price=$8, sku=$9, stock=$10, published=$11,
-             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, sale_timer=$25, updated_at=now() where id=$1`,
-          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer],
+             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, sale_timer=$25, return_policy_id=$26, warranty_policy_id=$27, updated_at=now() where id=$1`,
+          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer, d.returnPolicyId, d.warrantyPolicyId],
         );
         await ledgerStockChange(q, id, d.stock - prev[0].stock, { key: `product:${id}:edit:${Date.now()}`, refType: "product", refId: id, actor: admin.email, note: "Edited on the product form" });
         await audit(admin.email, "product_updated", "product", id, { before: prev[0], after: { price: d.price, sale_price: d.salePrice, stock: d.stock, published: published } }, q);
       } else {
         const r = await q.query<{ id: string }>(
-          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required, sale_starts_at, sale_ends_at, seo_title, seo_description, archived, sale_timer)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) returning id`,
-          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer],
+          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required, sale_starts_at, sale_ends_at, seo_title, seo_description, archived, sale_timer, return_policy_id, warranty_policy_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) returning id`,
+          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer, d.returnPolicyId, d.warrantyPolicyId],
         );
         savedId = r[0].id;
         await ledgerStockChange(q, savedId, d.stock, { key: `product:${savedId}:initial`, refType: "product", refId: savedId, actor: admin.email, note: "Stock entered when the product was created" });
@@ -181,7 +189,9 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   }
   await releaseRestockedAlerts(db);
   revalidatePath("/shop"); revalidatePath("/");
-  flash(`/admin/products/${savedId}`, { ok: "Product saved." });
+  // Reopen on the tab the owner was working in, not back on Basics.
+  const tab = String(form.get("tab") ?? "");
+  flash(`/admin/products/${savedId}${["basics", "pricing", "inventory", "media", "variants", "seo", "publishing"].includes(tab) ? `?tab=${tab}` : ""}`, { ok: "Product saved." });
 }
 
 export async function adjustStockAction(form: FormData) {
