@@ -5,6 +5,7 @@ import { clientIp } from "@/lib/client-ip";
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
 import { getDb } from "@/lib/db";
+import { tryAdminSignIn } from "@/lib/auth/admin-login";
 import { rateLimit } from "@/lib/rate-limit";
 import { flash } from "@/lib/admin/flash";
 import { endCustomerSession, getCustomer, startCustomerSession } from "@/lib/auth/session";
@@ -48,6 +49,8 @@ export async function loginAction(form: FormData) {
   if (!rateLimit(`customer-login:${await ip()}`, 10, 15 * 60_000)) flash(back, { error: "Too many attempts. Please try again in a few minutes." });
   let id: string;
   try {
+    // Staff use the same form: a correct admin email + password goes to the admin panel.
+    await tryAdminSignIn(await getDb(), str(form, "email"), str(form, "password"));
     id = await authenticateCustomer(await getDb(), str(form, "email"), str(form, "password"));
   } catch (e) {
     if (e instanceof CustomerError) flash(back, { error: e.message });
