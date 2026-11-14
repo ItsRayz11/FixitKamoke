@@ -77,12 +77,14 @@ export default function CheckoutPage() {
   }
   const saving = coupon?.ok ? coupon.discount : 0;
   const [adv, setAdv] = useState<{ advance: number; balance: number } | null>(null);
-  const previewTotal = Math.max(0, subtotal + (shipNow?.status === "quoted" ? shipNow.fee : 0) - saving);
+  const feeNow = shipNow?.status === "quoted" ? shipNow.fee : 0;
+  const linesKey = JSON.stringify(cart.lines);
+  const previewTotal = Math.max(0, subtotal + feeNow - saving);
   useEffect(() => {
     let cancelled = false;
-    const t = setTimeout(() => { getAdvanceView(previewTotal, city).then((a) => !cancelled && setAdv(a)).catch(() => !cancelled && setAdv(null)); }, 300);
+    const t = setTimeout(() => { getAdvanceView(previewTotal, city, JSON.parse(linesKey), saving, feeNow).then((a) => !cancelled && setAdv(a)).catch(() => !cancelled && setAdv(null)); }, 300);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [previewTotal, city]);
+  }, [previewTotal, city, linesKey, saving, feeNow]);
   const advanceNow = payment === "cod" && adv && adv.advance > 0 && previewTotal > 0 ? adv : null;
 
   const problems = view?.lines.some((l) => l.problem) || (view?.missing.length ?? 0) > 0;

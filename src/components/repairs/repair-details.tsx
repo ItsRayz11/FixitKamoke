@@ -15,6 +15,7 @@ export function RepairDetails({ repair, token }: { repair: RepairView; token?: s
       <div className="mt-4"><RepairSteps status={repair.status} /></div>
       <p className="mt-3 text-sm"><strong>{repair.deviceBrand} {repair.deviceModel}</strong></p>
       <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{repair.issue}</p>
+      {repair.photoCount > 0 && <p className="mt-1 text-sm text-muted">{repair.photoCount} {repair.photoCount === 1 ? "picture" : "pictures"} attached.</p>}
       {repair.estimateAmount !== null && (
         <p className="mt-4 rounded bg-canvas p-3 text-sm" data-testid="repair-price">
           {repair.estimateIsConfirmed

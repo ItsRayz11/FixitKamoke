@@ -8,7 +8,7 @@ import { Banner, fmtDate, inputCls, Submit, td, th } from "@/components/admin/ui
 import { formatPKR } from "@/lib/domain/money";
 import { getAdvanceConfig } from "@/lib/payments/advance";
 import { advanceFor, formatBps } from "@/lib/domain/advance";
-import { saveAdvanceAction, saveBankAction, saveWalletAction, setGatewayModeAction, toggleMethodAction } from "./actions";
+import { removeAdvanceRuleAction, saveAdvanceAction, saveAdvanceRuleAction, saveBankAction, saveWalletAction, setGatewayModeAction, toggleMethodAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +83,10 @@ export default async function PaymentsAdmin({ searchParams }: { searchParams: Pr
   const [opts, store, gateways, adv] = await Promise.all([getPaymentOptions(db), getStore(), gatewayStatuses(db), getAdvanceConfig(db)]);
   const advChoice = !adv.enabled ? "none" : adv.mode === "fixed" ? "custom_fixed" : adv.bps === 3333 ? "third" : adv.bps === 5000 ? "half" : "custom_percent";
   const sample = advanceFor(3000, adv);
+  const [ruleCats, ruleProducts] = await Promise.all([
+    db.query<{ id: string; name: string }>("select id, name from categories order by name"),
+    db.query<{ id: string; name: string }>("select id, name || coalesce(' (' || variant_label || ')', '') as name from products order by name limit 500"),
+  ]);
   const manualWaiting = (await db.query<{ n: number }>("select count(*)::int as n from orders where payment_method in ('bank_transfer','jazzcash_manual','easypaisa_manual') and payment_status in ('unpaid','pending') and status not in ('cancelled','rejected')"))[0]?.n ?? 0;
   const advanceWaiting = (await db.query<{ n: number }>("select count(*)::int as n from orders where payment_method = 'cod' and advance_required > advance_paid and status not in ('cancelled','rejected','returned')"))[0]?.n ?? 0;
   const awaiting = await db.query<{ id: string; order_number: string; total: number; created_at: string; provider: string | null }>(
@@ -127,6 +131,35 @@ export default async function PaymentsAdmin({ searchParams }: { searchParams: Pr
             </div>
             <Submit>Save advance rule</Submit>
           </form>
+          <div className="border-t border-line pt-3" data-testid="advance-rules">
+            <p className="text-sm font-semibold">Exceptions for a product or category</p>
+            <p className="text-sm text-muted">A product exception beats a category exception, which beats the general rule above. Only cash-on-delivery orders are affected.</p>
+            {adv.rules.length > 0 && (
+              <ul className="mt-2 space-y-2">
+                {adv.rules.map((r) => (
+                  <li key={`${r.kind}${r.id}`} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-line px-3 py-2 text-sm">
+                    <span className="min-w-0"><strong className="break-words">{r.label}</strong> <span className="text-muted">({r.kind}) · {r.mode === "none" ? "no advance" : r.mode === "percent" ? `${formatBps(r.bps)} advance` : `${formatPKR(r.fixed)} advance per item`}</span></span>
+                    <form action={removeAdvanceRuleAction}><input type="hidden" name="kind" value={r.kind} /><input type="hidden" name="id" value={r.id} /><button className="min-h-11 rounded-[var(--radius-sm)] border border-line px-3 text-sm font-semibold" aria-label={`Remove the exception for ${r.label}`}>Remove</button></form>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form action={saveAdvanceRuleAction} className="mt-3 space-y-2">
+              <div><label htmlFor="rule-target" className="text-sm font-semibold">Applies to</label>
+                <select id="rule-target" name="target" required defaultValue="" className={inputCls}>
+                  <option value="" disabled>Choose…</option>
+                  {ruleCats.length > 0 && <optgroup label="Categories">{ruleCats.map((c) => <option key={c.id} value={`category:${c.id}`}>{c.name}</option>)}</optgroup>}
+                  {ruleProducts.length > 0 && <optgroup label="Products">{ruleProducts.map((p) => <option key={p.id} value={`product:${p.id}`}>{p.name}</option>)}</optgroup>}
+                </select></div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="min-w-0"><label htmlFor="rule-mode" className="text-sm font-semibold">Advance</label>
+                  <select id="rule-mode" name="mode" defaultValue="none" className={inputCls}><option value="none">None</option><option value="percent">A percentage</option><option value="fixed">Fixed per item</option></select></div>
+                <div className="min-w-0"><label htmlFor="rule-percent" className="text-sm font-semibold">Percentage</label><input id="rule-percent" name="percent" inputMode="decimal" placeholder="e.g. 50" className={inputCls} /></div>
+                <div className="min-w-0"><label htmlFor="rule-fixed" className="text-sm font-semibold">Rs. per item</label><input id="rule-fixed" name="fixed" inputMode="numeric" placeholder="e.g. 1000" className={inputCls} /></div>
+              </div>
+              <Submit>Save exception</Submit>
+            </form>
+          </div>
           <details className="text-sm text-muted"><summary className="cursor-pointer font-semibold text-ink">How it works</summary>
             <p className="mt-2">The advance is worked out on the final total, rounded up to the next rupee. Customers pay it by transfer and send the transaction ID. You check your bank or wallet app, then press <strong>Verify advance</strong> on the order. A new rule only affects new orders.</p>
           </details>

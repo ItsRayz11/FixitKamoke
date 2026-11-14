@@ -8,7 +8,7 @@ import { countCustomerUses, couponProblem, findCoupon, toPricingCoupon } from "@
 import { quoteShipping, type ShippingConfig } from "@/lib/domain/shipping";
 import { getPaymentOptions } from "@/lib/payments";
 import { getAdvanceConfig } from "@/lib/payments/advance";
-import { advanceFor } from "@/lib/domain/advance";
+import { advanceForOrder } from "@/lib/domain/advance";
 import { queueStaffAlert } from "@/lib/email/alerts";
 import { displayName } from "@/lib/domain/display";
 import { paymentLabel } from "@/lib/domain/payment-label";
@@ -139,7 +139,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
 
     // Advance for cash on delivery, worked out here from the final total. The browser never supplies it.
     // Needs a confirmed delivery fee: an unquoted fee changes the total, and staff recompute the advance when they set it.
-    const adv = input.paymentMethod === "cod" && !(quote.status === "quoted" && !quote.advanceApplies) ? advanceFor(totals.total, await getAdvanceConfig(q)) : { advance: 0, bps: null };
+    const adv = input.paymentMethod === "cod" && !(quote.status === "quoted" && !quote.advanceApplies) ? advanceForOrder(lines.map((l) => ({ productId: l.productId, categoryId: l.categoryId, lineTotal: l.unitPrice * l.quantity, quantity: l.quantity })), totals.discount, totals.shippingFee, totals.total, await getAdvanceConfig(q)) : { advance: 0, bps: null };
 
     const orderNumber = "FX-" + crypto.randomBytes(5).toString("hex").toUpperCase();
     const token = crypto.randomBytes(24).toString("base64url");

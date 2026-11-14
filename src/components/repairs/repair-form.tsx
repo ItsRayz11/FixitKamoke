@@ -3,10 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitRepair } from "@/app/actions/repairs";
+import { repairPhotoTicket } from "@/app/actions/uploads";
+import { PhotoPicker, type PickedPhoto } from "@/components/upload/photo-picker";
 
 const field = "mt-1 h-12 w-full rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-base";
 
-export function RepairForm({ services }: { services: string[] }) {
+export function RepairForm({ services, canUpload = false }: { services: string[]; canUpload?: boolean }) {
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const router = useRouter();
   const [error, setError] = useState<{ message: string; fields?: Record<string, string> } | null>(null);
   const [pending, start] = useTransition();
@@ -29,6 +32,7 @@ export function RepairForm({ services }: { services: string[] }) {
           const r = await submitRepair({
             customerName: s("customerName"), phone: s("phone"), email: s("email"), deviceBrand: s("deviceBrand"), deviceModel: s("deviceModel"),
             issue: service ? `${service}${detail ? ` — ${detail}` : ""}` : detail, preferredContact: s("preferredContact"), appointmentPreference: s("appointmentPreference"),
+            photos: photos.length ? photos.map((x) => x.url) : undefined,
           });
           if (r.ok) router.push(`/repairs/status/${r.reference}?t=${encodeURIComponent(r.token)}`);
           else setError({ message: r.message, fields: r.fieldErrors });
@@ -50,6 +54,7 @@ export function RepairForm({ services }: { services: string[] }) {
         </div>
       )}
       <div><label htmlFor="issue" className="font-semibold">Describe the problem</label><textarea id="issue" name="issue" required rows={4} className={`${field} h-auto py-2`} placeholder="What happens, when it started, any drops or water contact…" />{err("issue")}</div>
+      {canUpload && <PhotoPicker inputId="repair-photos" label="Pictures of the phone (optional)" hint="Up to 3 pictures of the damage or the screen help us estimate faster." getTicket={repairPhotoTicket} onChange={setPhotos} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label htmlFor="customerName" className="font-semibold">Your name</label><input id="customerName" name="customerName" required autoComplete="name" className={field} />{err("customerName")}</div>
         <div><label htmlFor="phone" className="font-semibold">Mobile number</label><input id="phone" name="phone" type="tel" inputMode="tel" required autoComplete="tel" placeholder="03XX XXXXXXX" className={field} />{err("phone")}</div>

@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { flash } from "@/lib/admin/flash";
-import { saveAdvanceConfig } from "@/lib/payments/advance";
+import { getAdvanceConfig, saveAdvanceConfig } from "@/lib/payments/advance";
 import type { AdvanceConfig } from "@/lib/domain/advance";
 import { getStore, saveStore } from "@/lib/settings";
 import { leavesNoPaymentMethod, getPaymentOptions, credentialsPresent, GATEWAYS, getGatewaySettings, hasVerifiedPayment, type GatewayId, type GatewayMode } from "@/lib/payments";
@@ -41,7 +41,8 @@ export async function saveAdvanceAction(form: FormData) {
   const owner = await assertAdmin("owner");
   const choice = String(form.get("choice") ?? "none");
   const int = (k: string) => { const v = String(form.get(k) ?? "").replace(/[, ]/g, "").trim(); return v === "" ? NaN : Number(v); };
-  let cfg: AdvanceConfig = { enabled: true, mode: "percent", bps: 3333, fixed: 500, minOrder: 0 };
+  const rules = (await getAdvanceConfig(await getDb())).rules; // the general rule is saved here; exceptions are managed separately and kept
+  let cfg: AdvanceConfig = { enabled: true, mode: "percent", bps: 3333, fixed: 500, minOrder: 0, rules };
   const minOrder = Number.isFinite(int("minOrder")) ? int("minOrder") : 0;
   if (!Number.isSafeInteger(minOrder) || minOrder < 0) flash("/admin/payments", { error: "Minimum order must be a whole number of rupees, or empty." });
   cfg.minOrder = minOrder;
@@ -62,6 +63,46 @@ export async function saveAdvanceAction(form: FormData) {
   await audit(owner.email, "cod_advance_changed", "settings", "cod_advance", { choice, enabled: cfg.enabled, mode: cfg.mode, bps: cfg.bps, fixed: cfg.fixed, minOrder: cfg.minOrder });
   revalidatePath("/checkout");
   flash("/admin/payments", { ok: cfg.enabled ? "Advance rule saved. It applies to new cash-on-delivery orders only." : "Advance turned off for new orders." });
+}
+
+/** Adds or replaces an exception to the advance rule for one product or one category. Only affects new orders. */
+export async function saveAdvanceRuleAction(form: FormData) {
+  const owner = await assertAdmin("owner");
+  const target = String(form.get("target") ?? ""); // "product:<uuid>" or "category:<uuid>"
+  const [kind, id] = target.split(":");
+  const mode = String(form.get("mode") ?? "");
+  const db = await getDb();
+  if ((kind !== "product" && kind !== "category") || !/^[0-9a-f-]{36}$/i.test(id ?? "")) flash("/admin/payments", { error: "Choose a product or a category." });
+  if (!["none", "percent", "fixed"].includes(mode)) flash("/admin/payments", { error: "Choose what this item needs." });
+  const found = (await db.query<{ name: string }>(kind === "product" ? "select name from products where id = $1" : "select name from categories where id = $1", [id]))[0];
+  if (!found) flash("/admin/payments", { error: "That product or category no longer exists." });
+  const num = (k: string) => { const v = String(form.get(k) ?? "").replace(/[, ]/g, "").trim(); return v === "" ? NaN : Number(v); };
+  let bps = 3333; let fixed = 500;
+  if (mode === "percent") {
+    bps = Math.round(num("percent") * 100);
+    if (!Number.isFinite(bps) || bps < 100 || bps > 10_000) flash("/admin/payments", { error: "Enter a percentage between 1 and 100." });
+  } else if (mode === "fixed") {
+    fixed = num("fixed");
+    if (!Number.isSafeInteger(fixed) || fixed < 1) flash("/admin/payments", { error: "Enter the advance per item in whole rupees." });
+  }
+  const cfg = await getAdvanceConfig(db);
+  if (cfg.rules.filter((r) => !(r.kind === kind && r.id === id)).length >= 100) flash("/admin/payments", { error: "You can have up to 100 exceptions." });
+  const rule = { kind: kind as "product" | "category", id, label: found!.name.slice(0, 160), mode: mode as "none" | "percent" | "fixed", bps, fixed };
+  await saveAdvanceConfig(db, { ...cfg, rules: [...cfg.rules.filter((r) => !(r.kind === kind && r.id === id)), rule] });
+  await audit(owner.email, "cod_advance_rule_saved", "settings", "cod_advance", { kind, id, mode, bps, fixed });
+  revalidatePath("/checkout");
+  flash("/admin/payments", { ok: `Exception saved for ${found!.name}. It applies to new orders only.` });
+}
+
+export async function removeAdvanceRuleAction(form: FormData) {
+  const owner = await assertAdmin("owner");
+  const kind = String(form.get("kind") ?? ""); const id = String(form.get("id") ?? "");
+  const db = await getDb();
+  const cfg = await getAdvanceConfig(db);
+  await saveAdvanceConfig(db, { ...cfg, rules: cfg.rules.filter((r) => !(r.kind === kind && r.id === id)) });
+  await audit(owner.email, "cod_advance_rule_removed", "settings", "cod_advance", { kind, id });
+  revalidatePath("/checkout");
+  flash("/admin/payments", { ok: "Exception removed. That item now follows the general rule." });
 }
 
 const WALLET_NUMBER = /^[0-9+\-\s]{10,20}$/;

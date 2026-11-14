@@ -9,6 +9,7 @@ import { STATUS_LABEL } from "@/lib/orders/lookup";
 import { paymentLabel } from "@/lib/domain/payment-label";
 import { balanceCollectedAction, changeStatusAction, dispatchDetailsAction, noteAction, refundAction, setFeeAction, setPaymentAction, verifyAdvanceAction } from "../actions";
 import { receivedAmount } from "@/lib/orders/admin";
+import { optimizeImageUrl } from "@/lib/domain/images";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ interface O {
   id: string; order_number: string; status: OrderStatus; customer_name: string; phone: string; email: string | null; city: string; area: string | null; address: string; notes: string | null;
   payment_method: string; payment_status: string; payment_provider: string | null; payment_reference: string | null; coupon_code: string | null; subtotal: number; discount: number; shipping_fee: number; total: number; shipping_status: string;
   shipping_policy_version: string; created_at: string; advance_required: number; advance_paid: number; advance_bps: number | null; advance_verified_at: string | null; advance_verified_by: string | null;
-  carrier: string | null; tracking_number: string | null; dispatched_at: string | null; balance_collected: number; refunded_amount: number;
+  carrier: string | null; tracking_number: string | null; dispatched_at: string | null; balance_collected: number; refunded_amount: number; payment_receipts: string[];
 }
 
 export default async function OrderAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -66,6 +67,15 @@ export default async function OrderAdmin({ params, searchParams }: { params: Pro
         <Card title="Payment and delivery" id="pay">
           <p className="mt-2 text-sm">Method: {paymentLabel(o.payment_method, o.payment_provider)}</p>
           {o.payment_reference && <p className="text-sm">Payment reference: <span className="font-mono">{o.payment_reference}</span></p>}
+          {o.payment_receipts.length > 0 && (
+            <div className="mt-2 text-sm" data-testid="order-receipts"><p className="font-semibold">Receipt pictures from the customer</p>
+              <ul className="mt-1 flex flex-wrap gap-3">{o.payment_receipts.map((u, i) => (
+                <li key={u}><a href={u} target="_blank" rel="noopener noreferrer" className="block" aria-label={`Open receipt picture ${i + 1} in a new tab`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={optimizeImageUrl(u, 400)} alt={`Receipt picture ${i + 1}`} width={96} height={96} className="h-24 w-24 rounded-[var(--radius-sm)] border border-line object-cover" /></a></li>
+              ))}</ul>
+              <p className="mt-1 text-xs text-muted">Check the amount and date against your bank or wallet app before marking the payment paid.</p></div>
+          )}
           {o.payment_method === "online" && o.payment_status === "paid" && <p className="mt-1 text-sm text-ok">Paid online and confirmed by the payment provider. Refunds are made in the provider&apos;s own dashboard, then mark this order refunded.</p>}
           {o.payment_method === "online" && o.payment_status === "paid" && ["cancelled", "rejected"].includes(o.status) && <p role="alert" className="mt-1 rounded bg-amber-50 p-2 text-sm font-semibold text-warn">This order is cancelled but the customer has paid. Refund them in the provider&apos;s dashboard.</p>}
           {o.payment_method === "online" && o.payment_status !== "paid" && <p className="mt-1 text-sm text-warn">Waiting for the payment provider to confirm payment. Do not prepare this order until it shows paid.</p>}

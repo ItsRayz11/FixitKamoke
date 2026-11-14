@@ -75,7 +75,7 @@ export async function setManualShippingFee(db: Db, orderId: string, fee: number,
     //  - a percentage advance: recalculated on the new total with the same percentage; a fixed one stays the same amount (never above the total).
     let required = o.advance_required;
     if (o.advance_required > 0 && o.advance_paid === 0) {
-      required = o.advance_bps !== null ? advanceFor(total, { enabled: true, mode: "percent", bps: o.advance_bps, fixed: 1, minOrder: 0 }).advance : Math.min(o.advance_required, total);
+      required = o.advance_bps !== null ? advanceFor(total, { enabled: true, mode: "percent", bps: o.advance_bps, fixed: 1, minOrder: 0, rules: [] }).advance : Math.min(o.advance_required, total);
     }
     await q.query("update orders set shipping_fee = $2, total = $3, shipping_status = 'quoted', advance_required = $4, updated_at = now() where id = $1", [orderId, fee, total, required]);
     await audit(actor, "order_shipping_fee_set", "order", orderId, { fee, advanceRequired: required }, q);

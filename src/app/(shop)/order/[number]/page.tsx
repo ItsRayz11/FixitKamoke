@@ -8,6 +8,7 @@ import { getStore } from "@/lib/settings";
 import { formatPKR } from "@/lib/domain/money";
 import { isManualMethod, paymentLabel } from "@/lib/domain/payment-label";
 import { PayNow } from "@/components/order/pay-now";
+import { cloudinaryConfig } from "@/lib/cloudinary";
 import { TransferReferenceForm } from "@/components/order/transfer-reference-form";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           {showEasy && <WalletBlock name="Easypaisa" title={store.easypaisaTitle} number={store.easypaisaNumber} orderNumber={order.orderNumber} />}
           {store.paymentInstructions && <p className="mt-3 whitespace-pre-line text-sm"><strong>Other ways to pay:</strong> {store.paymentInstructions}</p>}
           <p className="mt-3 text-xs text-muted">Your order is only prepared once we have confirmed your {order.paymentMethod === "cod" ? "advance" : "payment"}.</p>
-          {t && order.paymentStatus !== "paid" && <TransferReferenceForm orderNumber={order.orderNumber} token={t} alreadySent={order.paymentStatus === "pending"} />}
+          {t && order.paymentStatus !== "paid" && <TransferReferenceForm orderNumber={order.orderNumber} token={t} alreadySent={order.paymentStatus === "pending"} canUpload={cloudinaryConfig() !== null} receiptCount={order.receiptCount} />}
         </section>
       )}
       <div className="mt-6 flex flex-wrap gap-4 text-sm font-semibold">

@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { Banner, Card, Field, fmtDate, inputCls, Submit } from "@/components/admin/ui";
 import { KeepForm } from "@/components/admin/keep-form";
 import { REPAIR_LABEL, nextRepairStatuses, type RepairStatus } from "@/lib/domain/repair-state";
+import { optimizeImageUrl } from "@/lib/domain/images";
 import { updateRepairAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 interface R {
   id: string; reference: string; status: RepairStatus; customer_name: string; phone: string; email: string | null; device_brand: string; device_model: string; issue: string;
   preferred_contact: string; appointment_preference: string | null; estimate_amount: number | null; estimate_is_confirmed: boolean; staff_notes: string | null;
-  customer_message: string | null; created_at: string; approved_at: string | null; approved_amount: number | null; approved_by: string | null;
+  customer_message: string | null; created_at: string; approved_at: string | null; approved_amount: number | null; approved_by: string | null; photo_urls: string[];
 }
 
 export default async function RepairAdmin({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
@@ -34,6 +35,14 @@ export default async function RepairAdmin({ params, searchParams }: { params: Pr
         <p className="mt-2 text-sm"><strong>{r.device_brand} {r.device_model}</strong></p>
         <p className="mt-1 whitespace-pre-wrap text-sm">{r.issue}</p>
         <p className="mt-3 text-sm">{r.customer_name} · {r.phone} · <a className="text-accent underline" href={`https://wa.me/${r.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>{r.email && <> · {r.email}</>}</p>
+        {r.photo_urls.length > 0 && (
+          <div className="mt-3" data-testid="repair-photos"><p className="text-sm font-semibold">Pictures from the customer</p>
+            <ul className="mt-1 flex flex-wrap gap-3">{r.photo_urls.map((u, i) => (
+              <li key={u}><a href={u} target="_blank" rel="noopener noreferrer" className="block" aria-label={`Open picture ${i + 1} in a new tab`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={optimizeImageUrl(u, 400)} alt={`Customer picture ${i + 1}`} width={96} height={96} className="h-24 w-24 rounded-[var(--radius-sm)] border border-line object-cover" /></a></li>
+            ))}</ul></div>
+        )}
         <p className="text-sm text-muted">Prefers: {r.preferred_contact}{r.appointment_preference && <> · Visit: {r.appointment_preference}</>} · Received {fmtDate(r.created_at)}</p>
       </Card>
 

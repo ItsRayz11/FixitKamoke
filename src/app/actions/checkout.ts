@@ -13,7 +13,7 @@ import { getAdmin, getCustomer } from "@/lib/auth/session";
 import { listAddresses } from "@/lib/customers/customers";
 import { getPaymentOptions, type PaymentOptions } from "@/lib/payments";
 import { getAdvanceConfig } from "@/lib/payments/advance";
-import { advanceFor } from "@/lib/domain/advance";
+import { advanceFor, advanceForOrder } from "@/lib/domain/advance";
 import { couponProblem, findCoupon, toPricingCoupon } from "@/lib/orders/coupons";
 import { couponDiscount } from "@/lib/domain/pricing";
 import { sendQueuedEmailSoon } from "@/lib/email/run";
@@ -66,7 +66,7 @@ export async function getShippingView(city: string, subtotal: number): Promise<S
 }
 
 /** What a cash-on-delivery customer pays now and on delivery. A preview from the saved rule; the order itself is recalculated on the server. */
-export async function getAdvanceView(total: number, city?: string): Promise<{ advance: number; balance: number }> {
+export async function getAdvanceView(total: number, city?: string, items?: unknown, discount?: number, fee?: number): Promise<{ advance: number; balance: number }> {
   if (!Number.isSafeInteger(total) || total < 0) return { advance: 0, balance: 0 };
   const db = await getDb();
   // A delivery zone can switch the advance off.
@@ -75,7 +75,16 @@ export async function getAdvanceView(total: number, city?: string): Promise<{ ad
     const zq = cfg ? quoteShipping(cfg, city, total) : null;
     if (zq?.status === "quoted" && !zq.advanceApplies) return { advance: 0, balance: total };
   }
-  const q = advanceFor(total, await getAdvanceConfig(db));
+  const cfg = await getAdvanceConfig(db);
+  // With exceptions for particular products or categories, the advance depends on what is in the cart.
+  const parsed = linesSchema.safeParse(items ?? []);
+  if (cfg.rules.length > 0 && parsed.success && parsed.data.length > 0 && Number.isSafeInteger(discount ?? 0) && Number.isSafeInteger(fee ?? 0)) {
+    const byId = new Map((await getProductsByIds(parsed.data.map((l) => l.productId))).map((p) => [p.id, p]));
+    const lines = parsed.data.flatMap((l) => { const p = byId.get(l.productId); return p ? [{ productId: p.id, categoryId: p.categoryId, lineTotal: effectivePrice(p) * l.quantity, quantity: l.quantity }] : []; });
+    const q = advanceForOrder(lines, discount ?? 0, fee ?? 0, total, cfg);
+    return { advance: q.advance, balance: q.balance };
+  }
+  const q = advanceFor(total, cfg);
   return { advance: q.advance, balance: q.balance };
 }
 

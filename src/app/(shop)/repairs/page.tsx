@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getStore } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
+import { cloudinaryConfig } from "@/lib/cloudinary";
 import { RepairForm } from "@/components/repairs/repair-form";
 import { RepairSteps } from "@/components/repairs/repair-steps";
 import { TrackView } from "@/components/analytics/track-view";
@@ -31,7 +32,7 @@ export default async function RepairsPage() {
       <div className="container-x grid gap-10 py-10 lg:grid-cols-[1fr_340px]">
         <section aria-labelledby="req">
           <h2 id="req" className="text-xl font-bold">Request a repair</h2>
-          <div className="mt-4 rounded-[var(--radius-md)] border border-line bg-surface p-5"><RepairForm services={store.repairServices} /></div>
+          <div className="mt-4 rounded-[var(--radius-md)] border border-line bg-surface p-5"><RepairForm services={store.repairServices} canUpload={cloudinaryConfig() !== null} /></div>
           <p className="mt-4 text-sm"><Link href="/repairs/track" className="font-semibold text-accent underline">Already sent a request? Check its status</Link></p>
         </section>
 

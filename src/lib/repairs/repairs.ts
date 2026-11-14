@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { queueStaffAlert } from "@/lib/email/alerts";
 import { normalizePkMobile } from "@/lib/domain/phone";
+import { cleanCustomerUploads, cloudinaryConfig } from "@/lib/cloudinary";
 import { canRepairTransition, type RepairStatus } from "@/lib/domain/repair-state";
 
 export const repairSchema = z.object({
@@ -15,6 +16,8 @@ export const repairSchema = z.object({
   issue: z.string().trim().min(5, "Please describe the problem").max(1500),
   preferredContact: z.enum(["whatsapp", "call", "email"]),
   appointmentPreference: z.string().trim().max(200).optional().or(z.literal("").transform(() => undefined)),
+  /** Links of pictures the customer uploaded (up to 3). Checked against the shop's own image account before saving. */
+  photos: z.array(z.string().max(300)).max(3, "You can attach up to 3 pictures.").optional(),
 });
 export type RepairInput = z.infer<typeof repairSchema>;
 
@@ -25,17 +28,19 @@ export class RepairError extends Error {
 const sha = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 export const hashRepairToken = sha;
 
-export async function createRepairInquiry(db: Db, raw: unknown): Promise<{ reference: string; token: string }> {
+export async function createRepairInquiry(db: Db, raw: unknown, opts: { cloudName?: string | null } = {}): Promise<{ reference: string; token: string }> {
   const d = repairSchema.parse(raw);
+  let photos: string[];
+  try { photos = cleanCustomerUploads(d.photos, "repair", opts.cloudName === undefined ? cloudinaryConfig()?.cloudName : opts.cloudName); } catch (e) { throw new RepairError("bad_input", e instanceof Error ? e.message : "A picture could not be used."); }
   const phone = normalizePkMobile(d.phone);
   if (!phone) throw new RepairError("invalid_phone", "Please enter a valid Pakistani mobile number.");
   const reference = "RP-" + crypto.randomBytes(5).toString("hex").toUpperCase();
   const token = crypto.randomBytes(24).toString("base64url");
   await db.tx(async (q) => {
     const r = await q.query<{ id: string }>(
-      `insert into repair_inquiries(reference, tracking_token_hash, customer_name, phone, email, device_brand, device_model, issue, preferred_contact, appointment_preference)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
-      [reference, sha(token), d.customerName, phone, d.email ?? null, d.deviceBrand, d.deviceModel, d.issue, d.preferredContact, d.appointmentPreference ?? null]);
+      `insert into repair_inquiries(reference, tracking_token_hash, customer_name, phone, email, device_brand, device_model, issue, preferred_contact, appointment_preference, photo_urls)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) returning id`,
+      [reference, sha(token), d.customerName, phone, d.email ?? null, d.deviceBrand, d.deviceModel, d.issue, d.preferredContact, d.appointmentPreference ?? null, JSON.stringify(photos)]);
     await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor) values ($1, null, 'new', 'customer')", [r[0].id]);
     await q.query("insert into analytics_events(name, path) values ('repair_submitted', '/repairs')");
     await queueStaffAlert(q, "repair", reference, `${d.deviceBrand} ${d.deviceModel}: ${d.issue.slice(0, 80)}`);
@@ -57,6 +62,8 @@ export interface RepairView {
   estimateAmount: number | null;
   estimateIsConfirmed: boolean;
   customerMessage: string | null;
+  /** How many pictures the customer attached to the request. */
+  photoCount: number;
   /** True when the customer may approve (or decline) the price shown, from their status page. */
   canRespond: boolean;
   approvedAmount: number | null;
@@ -67,10 +74,10 @@ export interface RepairView {
 interface Row {
   id: string; reference: string; status: RepairStatus; device_brand: string; device_model: string; issue: string; created_at: Date | string;
   estimate_amount: number | null; estimate_is_confirmed: boolean; customer_message: string | null; phone: string; tracking_token_hash: string;
-  approved_at: Date | string | null; approved_amount: number | null;
+  approved_at: Date | string | null; approved_amount: number | null; photo_urls: string[];
 }
 const eq = (a: string, b: string) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
-const COLS = "id, reference, status, device_brand, device_model, issue, created_at, estimate_amount, estimate_is_confirmed, customer_message, phone, tracking_token_hash, approved_at, approved_amount";
+const COLS = "id, reference, status, device_brand, device_model, issue, created_at, estimate_amount, estimate_is_confirmed, customer_message, phone, tracking_token_hash, approved_at, approved_amount, photo_urls";
 
 /** The customer is being asked for a go-ahead: a price exists and has not been approved at that exact amount yet. */
 function needsApproval(r: Pick<Row, "status" | "estimate_amount" | "approved_amount">): boolean {
@@ -83,7 +90,7 @@ async function view(db: Db, r: Row): Promise<RepairView> {
   const h = await db.query<{ to_status: string; created_at: Date | string }>("select to_status, created_at from repair_status_history where repair_id = $1 order by created_at, id", [r.id]);
   return {
     reference: r.reference, status: r.status, deviceBrand: r.device_brand, deviceModel: r.device_model, issue: r.issue, createdAt: new Date(r.created_at).toISOString(),
-    estimateAmount: r.estimate_amount, estimateIsConfirmed: r.estimate_is_confirmed, customerMessage: r.customer_message,
+    estimateAmount: r.estimate_amount, estimateIsConfirmed: r.estimate_is_confirmed, customerMessage: r.customer_message, photoCount: r.photo_urls.length,
     canRespond: needsApproval(r), approvedAmount: r.approved_amount, approvedAt: r.approved_at ? new Date(r.approved_at).toISOString() : null,
     history: h.map((x) => ({ status: x.to_status, at: new Date(x.created_at).toISOString() })),
   };
