@@ -33,6 +33,9 @@ export function leavesNoPaymentMethod(opts: PaymentOptions, off: "cod" | "bank" 
   return remaining === 0;
 }
 
+/** True when at least one way to pay is available to customers. */
+export const hasAnyPaymentMethod = (o: PaymentOptions) => o.cod || o.bankTransfer || o.wallets.length > 0 || o.online.length > 0;
+
 export const OFFLINE_LABEL: Record<OfflineMethod, string> = { cod: "Cash on delivery", bank_transfer: "Bank transfer" };
 
 export interface Gateway {

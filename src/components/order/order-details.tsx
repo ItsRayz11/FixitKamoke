@@ -2,7 +2,8 @@ import { paymentLabel } from "@/lib/domain/payment-label";
 import { formatPKR } from "@/lib/domain/money";
 import { STATUS_LABEL, type OrderView } from "@/lib/orders/lookup";
 
-export function OrderDetails({ order }: { order: OrderView }) {
+/** `payHint`: shown on pages reached without the private confirmation link, where the payment instructions are not displayed. */
+export function OrderDetails({ order, payHint = false }: { order: OrderView; payHint?: boolean }) {
   return (
     <section className="rounded-[var(--radius-md)] border border-line bg-surface p-5" aria-label={`Order ${order.orderNumber}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -28,6 +29,9 @@ export function OrderDetails({ order }: { order: OrderView }) {
       )}
       {order.carrier && (
         <p className="mt-3 text-sm" data-testid="tracking-info"><strong>Courier:</strong> {order.carrier}{order.trackingNumber && <> · <strong>Tracking number:</strong> <span className="break-all font-mono">{order.trackingNumber}</span></>}</p>
+      )}
+      {payHint && order.paymentMethod === "cod" && order.advanceRequired > order.advancePaid && (
+        <p className="mt-3 rounded-[var(--radius-sm)] border border-line bg-blue-50 p-3 text-sm" data-testid="pay-hint">Your advance has not been confirmed yet. The payment details are on the page you saw right after ordering (open the link from your confirmation). If you cannot find it, message us and we will send them.</p>
       )}
       <p className="mt-3 text-sm text-muted">Payment: {paymentLabel(order.paymentMethod, order.paymentProvider)}{order.paymentMethod === "online" ? (order.paymentStatus === "paid" ? ", paid" : ", awaiting payment") : ""} · Deliver to: {order.city}</p>
       <ol className="mt-4 space-y-1 text-sm">

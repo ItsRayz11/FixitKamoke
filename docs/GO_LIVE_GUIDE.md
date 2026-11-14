@@ -79,9 +79,9 @@ How automatic detection is kept safe: an order is marked paid **only** when the 
 ### Turning a gateway on (about 30 minutes, once you have the merchant account)
 1. Set the gateway's settings on the host (`JAZZCASH_MERCHANT_ID`, `JAZZCASH_PASSWORD`, `JAZZCASH_INTEGRITY_SALT`, optional `JAZZCASH_ENV=production`; or `SAFEPAY_API_KEY`, `SAFEPAY_SECRET_KEY`, `SAFEPAY_WEBHOOK_SECRET`, optional `SAFEPAY_ENV=production`). Start with the provider's **sandbox** credentials.
 2. Admin → Payments shows the exact address to give the provider ("callback" / "webhook" address). Enter it in the provider's merchant dashboard.
-3. In Admin → Payments press **Start testing (staff only)**. Only signed-in staff see the option at checkout.
+3. In Admin → Payments, open the gateway's card, press **Configure**, then **Start test**. Only signed-in staff see the option at checkout.
 4. Signed in as staff, add a cheap item to the cart, choose the gateway at checkout and pay with the provider's test details.
-5. When the provider's message arrives, Admin → Payments lists it as "valid" and "paid", and **Go live for customers** unlocks. Press it. Cancel the test order.
+5. When the provider's message arrives, Admin → Payments lists it as "valid" and "paid", and **Go live** unlocks in the same Configure panel. Press it. Cancel the test order.
 6. Switch to production credentials only when the provider has approved your live account, and make **one small real payment** yourself to confirm.
 
 If something fails, the "What the providers have sent us" table says why (for example "signature does not match": the Integrity Salt or webhook secret is wrong).

@@ -32,7 +32,7 @@ export default function TrackPage() {
         <button disabled={pending} className="min-h-12 w-full rounded-[var(--radius-sm)] bg-accent font-semibold text-white hover:bg-accent-strong disabled:bg-slate-300">{pending ? "Checking…" : "Track order"}</button>
       </form>
       {msg && <p role="alert" className="mt-4 rounded-[var(--radius-sm)] bg-red-50 p-3 text-sm text-danger">{msg}</p>}
-      {order && <div className="mt-6"><OrderDetails order={order} /></div>}
+      {order && <div className="mt-6"><OrderDetails order={order} payHint /></div>}
     </div>
   );
 }

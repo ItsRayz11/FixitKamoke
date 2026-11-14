@@ -13,8 +13,8 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const status = (ORDER_STATUSES as readonly string[]).includes(sp.status ?? "") ? sp.status! : "";
   const q = (sp.q ?? "").trim().slice(0, 60);
-  const rows = await (await getDb()).query<{ id: string; order_number: string; status: string; customer_name: string; phone: string; city: string; total: number; created_at: string; shipping_status: string; payment_method: string; payment_status: string }>(
-    `select id, order_number, status, customer_name, phone, city, total, created_at, shipping_status, payment_method, payment_status from orders
+  const rows = await (await getDb()).query<{ id: string; order_number: string; status: string; customer_name: string; phone: string; city: string; total: number; created_at: string; shipping_status: string; payment_method: string; payment_status: string; advance_required: number; advance_paid: number }>(
+    `select id, order_number, status, customer_name, phone, city, total, created_at, shipping_status, payment_method, payment_status, advance_required, advance_paid from orders
      where ($1 = '' or status = $1) and ($2 = '' or order_number ilike '%' || $2 || '%' or phone like '%' || $2 || '%' or customer_name ilike '%' || $2 || '%')
      order by created_at desc limit 200`, [status, q]);
   return (
@@ -42,6 +42,7 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
                 <td className={td}>{o.customer_name}<br /><span className="text-xs text-muted">{o.phone}</span></td>
                 <td className={td}>{o.city}</td>
                 <td className={td}>{formatPKR(o.total)}{o.shipping_status === "needs_confirmation" && <span className="block text-xs text-warn">delivery fee TBC</span>}
+                  {o.payment_method === "cod" && o.advance_required > o.advance_paid && !["cancelled", "rejected", "returned"].includes(o.status) && <span className="block text-xs text-warn" data-testid="advance-due">advance due {formatPKR(o.advance_required)}</span>}
                   {o.payment_method !== "cod" && <span className={`block text-xs ${o.payment_status === "paid" ? "text-ok" : "text-warn"}`}>{o.payment_status === "paid" ? "paid" : o.payment_status === "pending" && o.payment_method === "bank_transfer" ? "payment to check" : "awaiting payment"}</span>}</td>
                 <td className={td}>{STATUS_LABEL[o.status] ?? o.status}</td>
                 <td className={td}>{fmtDate(o.created_at)}</td>

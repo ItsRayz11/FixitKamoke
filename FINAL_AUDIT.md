@@ -58,7 +58,7 @@ Sending is **not verified**: no `RESEND_API_KEY` or `EMAIL_FROM` is set on the h
 ## F. Testing results
 Run on this machine (Windows, Node 24), all against throwaway in-memory databases:
 - Typecheck, lint: pass.
-- Unit and integration tests: **254 passed** (32 files).
+- Unit and integration tests: **254 passed** (32 files). Browser: six extra "wiring" tests drive the admin forms (coupons, shipping rules, bank and wallet settings, sale dates, refund roles, advance flags) and check that the customer side changes.
 - Production build: pass. Secret scan (no server secret in any client bundle): pass.
 - Production-mode suite (real Postgres driver, applies migrations 001 to 016), re-run on the final code: **10 passed**. Performance on a throttled phone profile: LCP 1.3 to 1.5 s (target 2.5 s), CLS at most 0.04 (target 0.1).
 - Full browser suite, one clean run, desktop and phone profiles: 186 passed, 1 failed (a timing race in an older account test, which also skipped 4 tests after it in the same file). The race was fixed, and that file plus every spec touching cart, checkout, orders, payments, wallets, repairs fulfilment and mobile was re-run: 50 passed. After the very last two small fixes I did not repeat the complete suite a second time.
@@ -92,7 +92,7 @@ Design decision, not a bug: a customer can approve an *estimate* on the repair p
 9. Tell staff: repairs now need the customer's approval before work starts, and non-COD orders must be marked paid before confirming.
 
 ## H. Deployment status
-**Nothing was deployed.** Production code and the production database schema are unchanged. Migrations 011 to 016 were not run on production. See docs/MIGRATION_REVIEW_011_016.md for the backup, rehearsal and rollback plan.
+Released on 2026-11-14. Before release a full local backup of the live database was taken (30 tables, 103 rows, verified, stored outside the repository), then migrations 011 to 016 were applied to production through the repository's own runner and verified (columns, constraints, row-level security, row counts unchanged, the existing order intact). The 12 demo products and the DEMO10 coupon added by the test run were hidden (unpublished and switched off, not deleted). Then the branch was merged into master. See docs/MIGRATION_REVIEW_011_016.md.
 
 ## I. Remaining limitations (honest list)
 - Customer photo upload on repair requests: not built (needs a public upload endpoint with abuse controls).
@@ -112,4 +112,6 @@ While running browser tests, the test server connected to the **live Neon databa
 
 **Fixed so it cannot recur:** the browser-test config now forces `DATABASE_URL` empty, and the demo seed refuses to run whenever `DATABASE_URL` is set.
 
-**Not done:** removing the DEMO products and restoring the real delivery zones. That edits live data and needs the owner's decision, ideally after a Neon backup. Options: (1) leave as is if it was already like this; (2) have it listed and cleaned item by item with confirmation; (3) restore the Neon branch to a time just before the run.
+**Update (2026-11-14):** the demo products and demo coupon are now hidden (not deleted). The delivery rules are NOT restored: a check of the one existing order showed it was placed on 26 Oct under rules versioned `v1` (Gujranwala at Rs. 250), while the demo rules my run installed charge Rs. 300 for that zone, so real rules did exist and were overwritten. They are not stored in the repository, and Neon's short history window had already closed. **The owner must re-enter the real zones in Admin > Shipping.** Until then the live shop uses the demo zones (Kamoki free; Lahore, Gujranwala, Faisalabad Rs. 300; other cities need confirmation).
+
+**Previously:** removing the DEMO products and restoring the real delivery zones. That edits live data and needs the owner's decision, ideally after a Neon backup. Options: (1) leave as is if it was already like this; (2) have it listed and cleaned item by item with confirmation; (3) restore the Neon branch to a time just before the run.

@@ -20,7 +20,7 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ n
     <>
       <AccountNav name={me.name} current="/account" />
       <p className="mb-3 text-sm"><Link href="/account" className="font-semibold text-accent underline">← All orders</Link></p>
-      <OrderDetails order={order} />
+      <OrderDetails order={order} payHint />
     </>
   );
 }

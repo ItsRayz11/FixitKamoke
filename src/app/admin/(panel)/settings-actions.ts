@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { flash } from "@/lib/admin/flash";
+import { getPaymentOptions, hasAnyPaymentMethod, type PaymentOptions } from "@/lib/payments";
 import { getStore, saveStore, storeSettingsSchema, type StoreSettings } from "@/lib/settings";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
 import { zoneProblems, type ShippingConfig, type ShippingZone } from "@/lib/domain/shipping";
@@ -34,6 +35,13 @@ export async function saveStoreAction(form: FormData) {
     flash("/admin/settings", { error: `${String(i.path[0] ?? "Setting")}: ${i.message}` });
   }
   const data = { ...(await getStore()), ...p.data } as StoreSettings; // keep settings this form does not show (wallets)
+  const live = await getPaymentOptions(await getDb());
+  const wallets: PaymentOptions["wallets"] = [];
+  if (data.jazzcashEnabled === true && data.jazzcashNumber?.trim()) wallets.push("jazzcash_manual");
+  if (data.easypaisaEnabled === true && data.easypaisaNumber?.trim()) wallets.push("easypaisa_manual");
+  if (!hasAnyPaymentMethod({ cod: data.codEnabled, bankTransfer: data.bankTransferEnabled, wallets, online: live.online })) {
+    flash("/admin/settings", { error: "Keep at least one payment method on (cash on delivery or bank transfer), or customers could not place orders." });
+  }
   await saveStore(data);
   await audit(admin.email, "store_settings_updated", "settings", "store", { policiesApproved: data.policiesApproved, whatsappSet: !!data.whatsappNumber });
   revalidatePath("/", "layout");
