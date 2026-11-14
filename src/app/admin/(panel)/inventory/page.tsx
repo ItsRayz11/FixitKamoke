@@ -3,7 +3,8 @@ import { waitingCounts } from "@/lib/stock-alerts";
 import { displayName } from "@/lib/domain/display";
 import { requireAdmin } from "@/lib/auth/session";
 import { financePermsOf } from "@/lib/finance/perms";
-import { openingCostAction } from "../finance/actions";
+import { bulkOpeningCostAction, openingCostAction } from "../finance/actions";
+import { inventoryValue } from "@/lib/finance/stock";
 import { getDb } from "@/lib/db";
 import { Banner, inputCls, td, th } from "@/components/admin/ui";
 import { adjustStockAction } from "../products/actions";
@@ -19,11 +20,36 @@ export default async function InventoryAdmin({ searchParams }: { searchParams: P
     `select id, name, sku, stock, published, variant_label, avg_cost, unvalued_units from products ${sp.low ? `where stock <= ${LOW_STOCK}` : ""} order by stock asc, name limit 300`);
   const db = await getDb();
   const waiting = await waitingCounts(db);
+  const value = showCost ? await inventoryValue(db) : null;
+  const missing = rows.filter((p) => p.unvalued_units > 0 && p.stock > 0);
   return (
     <div>
       <h1 className="text-2xl font-extrabold">Inventory</h1>
       <p className="mt-1 text-sm text-muted">Set the exact quantity on the shelf. Customers cannot order more than this. <a className="font-semibold text-accent" href={sp.low ? "/admin/inventory" : "/admin/inventory?low=1"}>{sp.low ? "Show all" : "Show low stock only"}</a></p>
       <div className="mt-4"><Banner ok={sp.ok} error={sp.error} /></div>
+      {value && (
+        <p className="mb-4 text-sm text-muted">
+          Stock value at cost: <span className="font-semibold text-ink">Rs. {value.valued.toLocaleString("en-PK")}</span>
+          {value.unknownUnits > 0 ? <> · <span className="font-semibold text-warn">{value.unknownUnits} unit(s) across {value.productsWithUnknown} product(s) have no known cost</span></> : " · every unit has a known cost"}
+        </p>
+      )}
+      {admin.role === "owner" && missing.length > 0 && (
+        <details className="mb-4 rounded-[var(--radius-md)] border border-line bg-surface p-4" open={missing.length <= 40}>
+          <summary className="cursor-pointer text-sm font-bold">Enter the cost of all existing stock at once ({missing.length} products)</summary>
+          <p className="mt-2 text-xs text-muted">Type what you actually paid per unit. Leave a product empty if you do not know it; it stays &quot;cost unknown&quot; and is never guessed.</p>
+          <form action={bulkOpeningCostAction} className="mt-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {missing.map((p) => (
+                <label key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span>{displayName(p.name, p.variant_label)} <span className="text-xs text-muted">({Math.min(p.unvalued_units, p.stock)} units)</span></span>
+                  <input name={`cost_${p.id}`} inputMode="decimal" placeholder="Rs. each" className={`${inputCls} !mt-0 h-9 w-28`} />
+                </label>
+              ))}
+            </div>
+            <button className="mt-3 min-h-11 rounded-[var(--radius-sm)] bg-accent px-5 text-sm font-semibold text-white">Save costs</button>
+          </form>
+        </details>
+      )}
       <div className="overflow-x-auto rounded-[var(--radius-md)] border border-line bg-surface">
         <table className="w-full">
           <thead className="border-b border-line"><tr><th className={th}>Product</th><th className={th}>SKU</th><th className={th}>In stock</th><th className={th}>Waiting for restock</th>{showCost && <th className={th}>Cost</th>}<th className={th}>Set quantity</th></tr></thead>

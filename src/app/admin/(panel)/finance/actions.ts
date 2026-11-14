@@ -192,6 +192,27 @@ export async function openingCostAction(f: FormData) {
     return `Cost of Rs. ${cost} set for ${used} existing unit(s).`;
   }, f);
 }
+export async function bulkOpeningCostAction(f: FormData) {
+  const u = await assertFinance("finance_costs");
+  if (u.role !== "owner") throw new Error("Not authorized");
+  await run("/admin/inventory", "finance_costs", async (who) => {
+    const db = await getDb();
+    let products = 0; let units = 0;
+    for (const [k, v] of f.entries()) {
+      if (!k.startsWith("cost_")) continue;
+      const raw = String(v).trim().replace(/,/g, "");
+      if (raw === "") continue;
+      const cost = Number(raw);
+      if (!Number.isFinite(cost) || cost < 0) throw new FinanceError("Costs must be numbers, zero or more.");
+      const id = k.slice(5);
+      const used = await declareOpeningCost(db, id, cost, who);
+      await audit(who, "opening_cost_declared", "product", id, { unitCost: cost, units: used });
+      products += 1; units += used;
+    }
+    if (!products) throw new FinanceError("Enter at least one cost first.");
+    return `Costs saved for ${products} product(s), ${units} unit(s).`;
+  }, f);
+}
 export async function returnGoodsAction(f: FormData) {
   const orderId = s(f, "orderId");
   await run(`/admin/orders/${orderId}`, "finance_write", async (who) => {
