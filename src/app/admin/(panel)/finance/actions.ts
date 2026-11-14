@@ -25,6 +25,7 @@ const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const n = (f: FormData, k: string) => { const v = s(f, k).replace(/,/g, ""); return v === "" ? NaN : Number(v); };
 const int = (f: FormData, k: string, d = 0) => { const v = n(f, k); return Number.isFinite(v) ? Math.round(v) : d; };
 const opt = (f: FormData, k: string) => s(f, k) || undefined;
+const LINE_IDX = Array.from({ length: 20 }, (_, i) => i); // item rows per purchase or counter sale
 const key = (f: FormData) => s(f, "key") || crypto.randomUUID();
 
 /** Run an action: map expected problems to a message on the page, let real bugs surface. */
@@ -51,7 +52,7 @@ export async function saveSupplierAction(f: FormData) {
 
 export async function createPurchaseAction(f: FormData) {
   await run("/admin/finance/purchases", "finance_write", async (who) => {
-    const items = [0, 1, 2, 3, 4, 5].map((i) => ({ productId: s(f, `p${i}`), packType: s(f, `t${i}`) === "box" ? "box" : "unit", qty: int(f, `q${i}`), unitsPerBox: int(f, `u${i}`, 1) || 1, cost: n(f, `c${i}`) }))
+    const items = LINE_IDX.map((i) => ({ productId: s(f, `p${i}`), packType: s(f, `t${i}`) === "box" ? "box" : "unit", qty: int(f, `q${i}`), unitsPerBox: int(f, `u${i}`, 1) || 1, cost: n(f, `c${i}`) }))
       .filter((r) => r.productId && r.qty > 0).map((r) => ({ ...r, packType: r.packType as "unit" | "box", cost: Number.isFinite(r.cost) ? r.cost : 0 }));
     const db = await getDb();
     const id = await createPurchase(db, {
@@ -82,7 +83,7 @@ export async function counterSaleAction(f: FormData) {
   await run("/admin/finance/counter", "pos", async (who) => {
     const u = await assertFinance("pos");
     const canPrice = u.role === "owner" || u.perms.includes("finance_write");
-    const items = [0, 1, 2, 3, 4, 5].map((i) => ({ productId: s(f, `p${i}`), quantity: int(f, `q${i}`), unitPrice: canPrice && Number.isFinite(n(f, `pr${i}`)) ? int(f, `pr${i}`) : undefined }))
+    const items = LINE_IDX.map((i) => ({ productId: s(f, `p${i}`), quantity: int(f, `q${i}`), unitPrice: canPrice && Number.isFinite(n(f, `pr${i}`)) ? int(f, `pr${i}`) : undefined }))
       .filter((r) => r.productId && r.quantity > 0);
     const paid = Number.isFinite(n(f, "paid")) ? int(f, "paid") : undefined;
     const r = await ringUpSale(await getDb(), {

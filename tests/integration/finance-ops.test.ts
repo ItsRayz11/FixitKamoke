@@ -12,6 +12,7 @@ import { addRepairPart, recordRepairPayment, repairProfit, setRepairFinance } fr
 import { closeDay, computeClosing, correctClosing } from "@/lib/finance/closing";
 import { overview, profitAndLoss, profitSeries, salesReport, cashCollection, inventoryValuation, productProfitability, stockCover, stockMovementsReport } from "@/lib/finance/reports";
 import { toCsv, toExcelXml } from "@/lib/finance/export";
+import { toXlsx } from "@/lib/finance/xlsx";
 import { createPurchase, receivePurchase } from "@/lib/finance/purchases";
 import { can, permsFor } from "@/lib/finance/perms-core";
 
@@ -307,5 +308,20 @@ describe("reports, exports and permissions", () => {
     expect(i.daysLeft).toBeNull();
     const hist = await stockMovementsReport(db, TODAY, TODAY);
     expect(hist.some((h) => h.kind === "pos_sale" && h.qty === -15)).toBe(true);
+  });
+
+  it("writes a real .xlsx file: a valid zip with the data, numbers as numbers and no formula risk", () => {
+    const buf = toXlsx("P&L: test/1", [{ a: "=SUM(A1)", b: 1250, c: "Ünï <x> & y" }, { a: "plain", b: "42", c: null }], [{ key: "a", label: "Name" }, { key: "b", label: "Amount" }, { key: "c", label: "Note" }]);
+    expect(buf.readUInt32LE(0)).toBe(0x04034b50); // zip signature
+    expect(buf.readUInt32LE(buf.length - 22)).toBe(0x06054b50); // end of central directory
+    expect(buf.readUInt16LE(buf.length - 22 + 10)).toBe(6); // six parts
+    const s = buf.toString("utf8");
+    for (const part of ["[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml", "xl/styles.xml"]) expect(s).toContain(part);
+    expect(s).toContain("<v>1250</v>");
+    expect(s).toContain("<v>42</v>");
+    expect(s).toContain("Ünï &lt;x&gt; &amp; y");
+    expect(s).toContain('t="inlineStr"><is><t xml:space="preserve">=SUM(A1)'); // stored as text, never a formula (<f>)
+    expect(s).not.toContain("<f>");
+    expect(s).toContain('name="P&amp;L  test 1"');
   });
 });

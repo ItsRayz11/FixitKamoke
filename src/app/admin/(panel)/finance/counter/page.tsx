@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { MoreLines } from "@/components/admin/more-lines";
 import { getDb } from "@/lib/db";
 import { moneyAccounts } from "@/lib/finance/ledger";
 import { can, requireFinance } from "@/lib/finance/perms";
@@ -31,13 +32,13 @@ export default async function Counter({ searchParams }: { searchParams: Promise<
         <KeepForm action={counterSaleAction} className="h-fit space-y-3 rounded-[var(--radius-md)] border border-line bg-surface p-4">
           <h2 className="font-bold">Counter sale</h2>
           <input type="hidden" name="key" value={k1} />
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          <MoreLines initial={3}>{Array.from({ length: 20 }, (_, i) => i).map((i) => (
             <div key={i} className={`grid gap-2 ${priced ? "grid-cols-[1fr_70px_90px]" : "grid-cols-[1fr_70px]"}`}>
               <select name={`p${i}`} aria-label={`Product ${i + 1}`} className={selectCls}><option value="">{i === 0 ? "Choose product" : "—"}</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}{p.variant_label ? ` (${p.variant_label})` : ""} · {rs(p.price)} · {p.stock} left</option>)}</select>
               <input name={`q${i}`} inputMode="numeric" placeholder="Qty" aria-label="Quantity" className={inputCls} />
               {priced && <input name={`pr${i}`} inputMode="numeric" placeholder="Price" aria-label="Price override" className={inputCls} />}
             </div>
-          ))}
+          ))}</MoreLines>
           <div className="grid grid-cols-2 gap-3">
             {priced && <Field label="Discount (Rs.)" id="c-disc"><input id="c-disc" name="discount" inputMode="numeric" className={inputCls} /></Field>}
             <Field label="Received now (Rs.)" id="c-paid" hint="Leave empty if paid in full. Less than the total is credit."><input id="c-paid" name="paid" inputMode="numeric" className={inputCls} /></Field>

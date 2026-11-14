@@ -3,6 +3,7 @@ import { getAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { toCsv, toExcelXml } from "@/lib/finance/export";
+import { toXlsx } from "@/lib/finance/xlsx";
 import { can } from "@/lib/finance/perms";
 import { permsFor } from "@/lib/finance/perms-core";
 import { REPORTS } from "@/lib/finance/report-defs";
@@ -27,12 +28,9 @@ export async function GET(req: Request) {
   const data = await def.build(db, from, to, account);
   await audit(admin.email, "finance_report_exported", "report", null, { report: u.searchParams.get("report"), from, to });
   const base = `fixit-${(u.searchParams.get("report") ?? "report")}-${from}_to_${to}`;
-  const xls = u.searchParams.get("format") === "xls";
-  return new NextResponse(xls ? toExcelXml(data.title, data.rows, data.cols) : toCsv(data.rows, data.cols), {
-    headers: {
-      "Content-Type": xls ? "application/vnd.ms-excel; charset=utf-8" : "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${base}.${xls ? "xml" : "csv"}"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  const fmt = u.searchParams.get("format");
+  const headers = (type: string, ext: string) => ({ "Content-Type": type, "Content-Disposition": `attachment; filename="${base}.${ext}"`, "Cache-Control": "no-store" });
+  if (fmt === "xlsx") return new NextResponse(new Uint8Array(toXlsx(data.title, data.rows, data.cols)), { headers: headers("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx") });
+  if (fmt === "xls") return new NextResponse(toExcelXml(data.title, data.rows, data.cols), { headers: headers("application/vnd.ms-excel; charset=utf-8", "xml") });
+  return new NextResponse(toCsv(data.rows, data.cols), { headers: headers("text/csv; charset=utf-8", "csv") });
 }

@@ -37,8 +37,8 @@ The migration only adds. To go back, redeploy the previous code; the new tables 
 ## Known limits (be aware)
 
 - **Permissions are enforced on the server** (every action, page and download checks the finance permission). The database cannot tell staff apart because the app connects with one database role, so database-level enforcement is not possible without a per-user database role design.
-- **Excel export** is an Excel 2003 XML workbook (`.xml`, opens in Excel and LibreOffice). CSV is also offered. A native `.xlsx` needs an extra library.
+- **Excel export** is a native `.xlsx` file (CSV is also offered).
 - **COD and online receipts** default to these accounts: COD advance to Bank, COD cash to Cash, bank transfer and online to Bank, JazzCash and Easypaisa to their wallets. Override with a `finance` row in `store_settings`; a wrong guess is corrected with a transfer, never by editing history.
 - **Stock stages** are unchanged: stock is reserved (deducted) when an order is placed and released on cancel/reject. Returned goods after delivery go back through **Returned goods** on the order page. Every movement is ledgered once, by key.
 - **Labour cost on repairs** is report-only (not posted) so it is not double counted with salaries.
-- Forms hold up to 6 lines per purchase or counter sale.
+- Purchases and counter sales take up to 20 item lines per form (more can be added as a second document). Excel downloads are real .xlsx files; the older XML format is still available with `format=xls`.

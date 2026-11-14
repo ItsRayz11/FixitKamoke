@@ -34,7 +34,7 @@ export default async function Reports({ searchParams }: { searchParams: Promise<
             <DateRange from={from} to={to} extra={<><input type="hidden" name="report" value={key} />{key === "accounts" && <label className="text-sm font-semibold">Account code<input name="account" defaultValue={account} className="mt-1 block h-11 w-28 rounded-[var(--radius-sm)] border border-line bg-surface px-3 text-sm" /></label>}</>} />
             <div className="flex gap-2 text-sm font-semibold">
               <a className="min-h-11 rounded-[var(--radius-sm)] border border-line px-4 py-2.5" href={`/admin/finance/reports/export${q(key)}&format=csv`}>Download CSV</a>
-              <a className="min-h-11 rounded-[var(--radius-sm)] border border-line px-4 py-2.5" href={`/admin/finance/reports/export${q(key)}&format=xls`}>Download Excel</a>
+              <a className="min-h-11 rounded-[var(--radius-sm)] border border-line px-4 py-2.5" href={`/admin/finance/reports/export${q(key)}&format=xlsx`}>Download Excel (.xlsx)</a>
             </div>
           </div>
           <h2 className="font-bold">{data.title}</h2>

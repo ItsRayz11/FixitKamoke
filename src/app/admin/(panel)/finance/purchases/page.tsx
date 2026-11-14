@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { MoreLines } from "@/components/admin/more-lines";
 import { getDb } from "@/lib/db";
 import { moneyAccounts } from "@/lib/finance/ledger";
 import { requireFinance } from "@/lib/finance/perms";
@@ -68,7 +69,7 @@ export default async function Purchases({ searchParams }: { searchParams: Promis
           <Field label="Date" id="p-date"><input id="p-date" name="date" type="date" defaultValue={today()} className={inputCls} /></Field>
           <Field label="Invoice no." id="p-inv"><input id="p-inv" name="invoice" className={inputCls} /></Field>
         </div>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+        <MoreLines>{Array.from({ length: 20 }, (_, i) => i).map((i) => (
           <fieldset key={i} className="rounded-[var(--radius-sm)] border border-line p-2">
             <legend className="px-1 text-xs font-semibold text-muted">Item {i + 1}</legend>
             <select name={`p${i}`} aria-label={`Product ${i + 1}`} className={selectCls}><option value="">Choose product</option>{opt}</select>
@@ -79,7 +80,7 @@ export default async function Purchases({ searchParams }: { searchParams: Promis
               <input name={`c${i}`} inputMode="decimal" placeholder="Cost each" aria-label="Cost per unit or per box" className={inputCls} />
             </div>
           </fieldset>
-        ))}
+        ))}</MoreLines>
         <p className="text-xs text-muted">Cost is per unit, or per box when “Box” is chosen. Units per box is only used for boxes.</p>
         <div className="grid grid-cols-3 gap-2">
           <Field label="Discount" id="p-disc"><input id="p-disc" name="discount" inputMode="numeric" className={inputCls} /></Field>
