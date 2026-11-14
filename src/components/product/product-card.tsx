@@ -35,10 +35,10 @@ export function ProductCard({ product: p }: { product: Product }) {
             {finishes.length > 5 && <li className="text-xs text-muted">+{finishes.length - 5}</li>}
           </ul>
         )}
-        <Price price={p.price} salePrice={p.salePrice} />
+        <Price price={p.price} salePrice={p.salePrice} saleMsLeft={p.saleMsLeft} />
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <StockBadge stock={p.stock} />
-          <QuickView p={{ id: p.id, slug: p.slug, name: p.variantLabel && !many ? `${p.name} — ${p.variantLabel}` : p.name, brand: p.brand, description: p.description, price: p.price, salePrice: p.salePrice, stock: p.stock, image: p.image, hasFinishes: many }} />
+          <QuickView p={{ id: p.id, slug: p.slug, name: p.variantLabel && !many ? `${p.name} — ${p.variantLabel}` : p.name, brand: p.brand, description: p.description, price: p.price, salePrice: p.salePrice, saleMsLeft: p.saleMsLeft, stock: p.stock, image: p.image, hasFinishes: many }} />
         </div>
         {many
           ? <TrackedLink event="product_click" href={`/product/${p.slug}`} className="btn btn-ti w-full">Choose finish</TrackedLink>

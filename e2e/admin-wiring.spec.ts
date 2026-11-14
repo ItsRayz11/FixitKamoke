@@ -164,8 +164,8 @@ test("sale dates set in the product editor decide the price customers see", asyn
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill(NAME);
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("2000");
-  await page.getByLabel("Sale price (Rs.)").fill("1500");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("2000");
+  await page.getByLabel("Discount price (Rs.)").fill("1500");
   await page.getByLabel("Sale starts").fill(iso(3)); // not started yet
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("5");

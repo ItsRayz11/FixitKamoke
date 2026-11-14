@@ -1,4 +1,4 @@
-import { saleNowSql } from "@/lib/domain/sale";
+import { saleNowSql, saleTimerEndSql } from "@/lib/domain/sale";
 import { getDb } from "@/lib/db";
 
 export interface Product {
@@ -12,6 +12,8 @@ export interface Product {
   description: string;
   price: number;
   salePrice: number | null;
+  /** Milliseconds left on the running sale, only when the owner switched the countdown on. Counted when the page was built. */
+  saleMsLeft: number | null;
   sku: string | null;
   stock: number;
   specs: Record<string, string>;
@@ -38,22 +40,25 @@ export { availability, type Availability } from "@/lib/domain/availability";
 interface Row {
   id: string; slug: string; name: string; brand: string | null; category_id: string | null;
   category_name: string | null; category_slug: string | null; description: string; price: number;
-  sale_price: number | null; sku: string | null; stock: number; specs: Record<string, string>;
+  sale_price: number | null; sale_timer_end: Date | string | null; sku: string | null; stock: number; specs: Record<string, string>;
   compatible_devices: string[]; warranty_info: string | null; image_url: string | null; image_alt: string | null;
   variant_group: string | null; variant_label: string | null; variant_hex: string | null; variant_required: boolean;
   seo_title: string | null; seo_description: string | null;
 }
 
 const SELECT = `select p.id, p.slug, p.name, p.brand, p.category_id, c.name as category_name, c.slug as category_slug,
-  p.description, p.price, ${saleNowSql()} as sale_price, p.sku, p.stock, p.specs, p.compatible_devices, p.warranty_info,
+  p.description, p.price, ${saleNowSql()} as sale_price, ${saleTimerEndSql()} as sale_timer_end, p.sku, p.stock, p.specs, p.compatible_devices, p.warranty_info,
   p.variant_group, p.variant_label, p.variant_hex, p.variant_required, p.seo_title, p.seo_description,
   (select url from product_images i where i.product_id = p.id and i.kind = 'photo' order by sort_order limit 1) as image_url,
   (select alt from product_images i where i.product_id = p.id and i.kind = 'photo' order by sort_order limit 1) as image_alt
   from products p left join categories c on c.id = p.category_id`;
 
+/** Time left until a sale ends, from the server clock now. Null when there is no timer. */
+const msLeft = (end: Date | string | null): number | null => (end ? Math.max(0, new Date(end).getTime() - Date.now()) : null);
+
 const map = (r: Row): Product => ({
   id: r.id, slug: r.slug, name: r.name, brand: r.brand, categoryId: r.category_id, categoryName: r.category_name,
-  categorySlug: r.category_slug, description: r.description, price: r.price, salePrice: r.sale_price, sku: r.sku,
+  categorySlug: r.category_slug, description: r.description, price: r.price, salePrice: r.sale_price, saleMsLeft: msLeft(r.sale_timer_end), sku: r.sku,
   stock: r.stock, specs: r.specs ?? {}, compatibleDevices: r.compatible_devices ?? [], warrantyInfo: r.warranty_info,
   image: r.image_url ? { url: r.image_url, alt: r.image_alt ?? r.name } : null,
   variantGroup: r.variant_group, variantLabel: r.variant_label, variantHex: r.variant_hex, variantRequired: r.variant_required,
@@ -180,7 +185,7 @@ export async function getSpinFrames(productIds: string[]): Promise<Record<string
 }
 
 export interface Variant {
-  id: string; slug: string; label: string; hex: string | null; price: number; salePrice: number | null; stock: number; sku: string | null;
+  id: string; slug: string; label: string; hex: string | null; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number; sku: string | null;
   images: { url: string; alt: string }[];
 }
 
@@ -193,7 +198,7 @@ export async function getVariants(p: Product): Promise<Variant[]> {
   const imgs = await db.query<{ product_id: string; url: string; alt: string }>(
     "select product_id, url, alt from product_images where product_id = any($1::uuid[]) and kind = 'photo' order by sort_order", [rows.map((r) => r.id)]);
   return rows.map((r) => ({
-    id: r.id, slug: r.slug, label: r.variant_label ?? "", hex: r.variant_hex, price: r.price, salePrice: r.sale_price, stock: r.stock, sku: r.sku,
+    id: r.id, slug: r.slug, label: r.variant_label ?? "", hex: r.variant_hex, price: r.price, salePrice: r.sale_price, saleMsLeft: msLeft(r.sale_timer_end), stock: r.stock, sku: r.sku,
     images: imgs.filter((i) => i.product_id === r.id).map((i) => ({ url: i.url, alt: i.alt })),
   }));
 }

@@ -11,7 +11,7 @@ test("a product with several photos shows a gallery that switches photos accessi
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Gallery Test Item");
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("500");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("500");
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("5");
   await page.getByRole("tab", { name: "Media" }).click();
@@ -44,7 +44,7 @@ test("a product with one photo shows no thumbnail strip", async ({ page }) => {
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Single Photo Item");
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("300");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("300");
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("2");
   await page.getByRole("tab", { name: "Media" }).click();

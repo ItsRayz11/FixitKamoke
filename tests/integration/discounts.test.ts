@@ -3,7 +3,7 @@ import { createPgliteDb, type Db } from "@/lib/db";
 import { migrate } from "@/lib/db/migrate";
 import { createOrder } from "@/lib/orders/create-order";
 import { transitionOrder } from "@/lib/orders/admin";
-import { saleNowSql } from "@/lib/domain/sale";
+import { saleNowSql, saleTimerEndSql } from "@/lib/domain/sale";
 
 let db: Db;
 let cable: string; // Rs. 1,000, on sale at 800 (always on)
@@ -53,6 +53,24 @@ describe("sale windows", () => {
     expect(by["sale-cable"]).toBe(800);
     expect(by["future-sale"]).toBeNull();
     expect(by["ended-sale"]).toBeNull();
+  });
+
+  it("the countdown shows only for a running sale whose timer is switched on, and a lapsed sale sells at the regular price", async () => {
+    const mk = async (slug: string, timer: boolean, window: string) =>
+      (await db.query<{ id: string }>(`insert into products(slug,name,price,sale_price,stock,published,sku,sale_timer,sale_starts_at,sale_ends_at) values ($1,$1,1000,700,50,true,$1,$2,${window}) returning id`, [slug, timer]))[0].id;
+    const live = await mk("timer-live", true, "now() - interval '1 hour', now() + interval '2 days'");
+    await mk("timer-off", false, "now() - interval '1 hour', now() + interval '2 days'");
+    const lapsed = await mk("timer-lapsed", true, "now() - interval '3 days', now() - interval '1 second'");
+    const rows = await db.query<{ slug: string; s: number | null; t: Date | null }>(`select slug, ${saleNowSql("p")} as s, ${saleTimerEndSql("p")} as t from products p where slug like 'timer-%'`);
+    const by = Object.fromEntries(rows.map((r) => [r.slug, r]));
+    expect(by["timer-live"].t).not.toBeNull();
+    expect(by["timer-off"].s).toBe(700);
+    expect(by["timer-off"].t).toBeNull();
+    expect(by["timer-lapsed"].s).toBeNull();
+    expect(by["timer-lapsed"].t).toBeNull();
+    // Checkout also follows the clock: the lapsed one is charged in full even though its timer flag is still on.
+    const o = await place([{ productId: live, quantity: 1 }, { productId: lapsed, quantity: 1 }]);
+    expect(o.total).toBe(700 + 1000 + 300);
   });
 
   it("rejects an end date before the start date", async () => {

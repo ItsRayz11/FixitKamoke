@@ -58,7 +58,7 @@ test("destructive admin actions ask first: cancel keeps the product, confirm del
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Delete Me Item");
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("100");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("100");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
   const url = page.url().split("?")[0];

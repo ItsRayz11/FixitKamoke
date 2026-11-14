@@ -8,7 +8,7 @@ import { AddToCartButton } from "@/components/cart/add-to-cart";
 import { optimizeImageUrl } from "@/lib/domain/images";
 
 export interface QuickViewProduct {
-  id: string; slug: string; name: string; brand: string | null; description: string; price: number; salePrice: number | null; stock: number;
+  id: string; slug: string; name: string; brand: string | null; description: string; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number;
   image: { url: string; alt: string } | null; hasFinishes: boolean;
 }
 
@@ -30,7 +30,7 @@ export function QuickView({ p }: { p: QuickViewProduct }) {
             : <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted">Photo coming soon</div>}
         </div>
         <div className="min-w-0 space-y-3">
-          <Price price={p.price} salePrice={p.salePrice} size="lg" />
+          <Price price={p.price} salePrice={p.salePrice} saleMsLeft={p.saleMsLeft} size="lg" />
           <StockBadge stock={p.stock} />
           {blurb && <p className="text-sm text-muted">{blurb}</p>}
           {p.hasFinishes

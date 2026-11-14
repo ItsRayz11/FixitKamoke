@@ -18,7 +18,7 @@ test("sitemap excludes unpublished products", async ({ page, request }) => {
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill("Unpublished Secret Item");
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("100");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("100");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Product saved.")).toBeVisible();
   const xml = await (await request.get("/sitemap.xml")).text();

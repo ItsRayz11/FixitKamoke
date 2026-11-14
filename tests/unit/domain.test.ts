@@ -108,3 +108,50 @@ describe("promotions (phase 5)", () => {
     expect(percentOff(10000, 9999)).toBeNull(); // rounds to 0%: not advertised
   });
 });
+
+describe("resolveSaleWindow and the countdown", () => {
+  const now = new Date("2026-11-14T10:00:00Z");
+  const none = { starts: null, ends: null };
+  it("a length starts now and ends exactly that many days later", async () => {
+    const { resolveSaleWindow } = await import("@/lib/domain/sale");
+    for (const d of [1, 2, 7]) {
+      const w = resolveSaleWindow({ length: String(d), startsDate: "", endsDate: "", prev: none, now }) as { starts: Date; ends: Date };
+      expect(w.starts).toEqual(now);
+      expect(w.ends.getTime() - now.getTime()).toBe(d * 86_400_000);
+    }
+  });
+  it("refuses a length that is not on the list", async () => {
+    const { resolveSaleWindow } = await import("@/lib/domain/sale");
+    for (const bad of ["0", "5", "-1", "abc", "9999"]) expect(resolveSaleWindow({ length: bad, startsDate: "", endsDate: "", prev: none, now })).toHaveProperty("error");
+  });
+  it("typed dates are end-of-day Pakistan time, but an unchanged date keeps its exact stored time", async () => {
+    const { resolveSaleWindow } = await import("@/lib/domain/sale");
+    const typed = resolveSaleWindow({ length: "", startsDate: "", endsDate: "2026-11-20", prev: none, now }) as { ends: Date };
+    expect(typed.ends.toISOString()).toBe("2026-11-20T18:59:59.000Z");
+    const exact = new Date("2026-11-20T04:30:12Z"); // set earlier by a "2 days" length; same PKT day as the date shown in the form
+    const kept = resolveSaleWindow({ length: "", startsDate: "", endsDate: "2026-11-20", prev: { starts: null, ends: exact }, now }) as { ends: Date };
+    expect(kept.ends).toEqual(exact);
+  });
+  it("rejects impossible or backwards dates", async () => {
+    const { resolveSaleWindow } = await import("@/lib/domain/sale");
+    expect(resolveSaleWindow({ length: "", startsDate: "2026-13-45", endsDate: "", prev: none, now })).toHaveProperty("error");
+    expect(resolveSaleWindow({ length: "", startsDate: "2026-11-20", endsDate: "2026-11-19", prev: none, now })).toHaveProperty("error");
+  });
+  it("reports where a sale stands", async () => {
+    const { saleStatus, longDuration } = await import("@/lib/domain/sale");
+    const h = (n: number) => new Date(now.getTime() + n * 3_600_000);
+    expect(saleStatus({ salePrice: null, starts: null, ends: null, now }).kind).toBe("none");
+    expect(saleStatus({ salePrice: 100, starts: h(1), ends: h(48), now }).kind).toBe("scheduled");
+    expect(saleStatus({ salePrice: 100, starts: h(-1), ends: h(48), now })).toMatchObject({ kind: "running", msLeft: 48 * 3_600_000 });
+    expect(saleStatus({ salePrice: 100, starts: null, ends: null, now })).toMatchObject({ kind: "running", msLeft: null });
+    expect(saleStatus({ salePrice: 100, starts: h(-50), ends: h(-1), now }).kind).toBe("ended");
+    expect(longDuration(53 * 3_600_000 + 10 * 60_000)).toBe("2 days 5 hours");
+    expect(longDuration(61 * 60_000)).toBe("1 hour 1 minute");
+  });
+  it("formats the countdown", async () => {
+    const { formatCountdown } = await import("@/components/ui/sale-timer");
+    expect(formatCountdown(2 * 86_400_000 + 5 * 3_600_000 + 13 * 60_000 + 9_000)).toBe("2d 05h 13m");
+    expect(formatCountdown(5 * 3_600_000 + 13 * 60_000 + 22_000)).toBe("05:13:22");
+    expect(formatCountdown(-50)).toBe("00:00:00");
+  });
+});

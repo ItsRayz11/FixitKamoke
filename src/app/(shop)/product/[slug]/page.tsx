@@ -173,8 +173,8 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       </nav>
 
       <ProductShowcase
-        base={{ id: p.id, slug: p.slug, name: p.name, brand: p.brand, description: p.description, price: p.price, salePrice: p.salePrice, stock: p.stock, images, spin: spinMap[p.id] ?? [] }}
-        variants={variants.map((v) => ({ id: v.id, slug: v.slug, label: v.label, hex: v.hex, price: v.price, salePrice: v.salePrice, stock: v.stock, images: v.images, spin: spinMap[v.id] ?? [] }))}
+        base={{ id: p.id, slug: p.slug, name: p.name, brand: p.brand, description: p.description, price: p.price, salePrice: p.salePrice, saleMsLeft: p.saleMsLeft, stock: p.stock, images, spin: spinMap[p.id] ?? [] }}
+        variants={variants.map((v) => ({ id: v.id, slug: v.slug, label: v.label, hex: v.hex, price: v.price, salePrice: v.salePrice, saleMsLeft: v.saleMsLeft, stock: v.stock, images: v.images, spin: spinMap[v.id] ?? [] }))}
         required={p.variantRequired}
         specsSlot={specsSlot}
         afterBuySlot={afterBuySlot}

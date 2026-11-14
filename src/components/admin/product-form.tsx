@@ -6,16 +6,16 @@ import { Field, inputCls } from "./ui";
 import type { Category } from "@/lib/catalog";
 import { ImageUploader } from "./image-uploader";
 import { ImagePreviews } from "./image-previews";
-import { percentOff } from "@/lib/domain/sale";
+import { percentOff, SALE_LENGTH_DAYS } from "@/lib/domain/sale";
 
 export interface ProductFormValues {
-  id?: string; name: string; slug: string; brand: string; categoryId: string; description: string; price: number | ""; salePrice: number | ""; saleStarts: string; saleEnds: string;
+  id?: string; name: string; slug: string; brand: string; categoryId: string; description: string; price: number | ""; salePrice: number | ""; saleStarts: string; saleEnds: string; saleTimer: boolean;
   sku: string; stock: number | ""; status: "draft" | "active" | "archived"; seoTitle: string; seoDescription: string; warranty: string; weight: number | ""; specs: string; devices: string; images: string; spin: string;
   variantGroup: string; variantLabel: string; variantHex: string; variantRequired: boolean;
 }
 
 export const emptyProduct: ProductFormValues = {
-  name: "", slug: "", brand: "", categoryId: "", description: "", price: "", salePrice: "", saleStarts: "", saleEnds: "", sku: "", stock: 0, status: "draft", seoTitle: "", seoDescription: "",
+  name: "", slug: "", brand: "", categoryId: "", description: "", price: "", salePrice: "", saleStarts: "", saleEnds: "", saleTimer: false, sku: "", stock: 0, status: "draft", seoTitle: "", seoDescription: "",
   warranty: "", weight: "", specs: "", devices: "", images: "", spin: "",
   variantGroup: "", variantLabel: "", variantHex: "", variantRequired: false,
 };
@@ -45,12 +45,23 @@ function tabForError(msg: string): TabId | null {
 
 const area = `${inputCls} h-auto py-2`;
 
-export function ProductForm({ v, categories, uploads = false }: { v: ProductFormValues; categories: Category[]; uploads?: boolean }) {
+/** Read-only facts shown on the Pricing tab of a saved product, worked out on the server. */
+export interface SaleInfo {
+  statusKind: "none" | "scheduled" | "running" | "ended";
+  startsText: string | null; endsText: string | null; leftText: string | null; timerOn: boolean;
+  /** Present only for people allowed to see costs. */
+  cost: { avg: number | null; unknownUnits: number; isOwner: boolean } | null;
+}
+
+const rs = (n: number) => `Rs. ${n.toLocaleString("en-PK", { maximumFractionDigits: 2 })}`;
+
+export function ProductForm({ v, categories, uploads = false, saleInfo }: { v: ProductFormValues; categories: Category[]; uploads?: boolean; saleInfo?: SaleInfo }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [tab, setTab] = useState<TabId>("basics");
   const [price, setPrice] = useState(String(v.price));
   const [sale, setSale] = useState(String(v.salePrice));
+  const [length, setLength] = useState("");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Submitted by hand instead of <form action>: React then never resets the inputs, so a rejected save keeps everything typed.
@@ -116,16 +127,72 @@ export function ProductForm({ v, categories, uploads = false }: { v: ProductForm
 
         <div {...panel("pricing")}>
           <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
-            <Field label="Price (Rs.)" id="price" hint="The regular price."><input id="price" name="price" inputMode="numeric" required value={price} onChange={(e) => setPrice(e.target.value)} className={inputCls} /></Field>
-            <Field label="Sale price (Rs.)" id="salePrice" hint="Optional. Lower than the price."><input id="salePrice" name="salePrice" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value)} className={inputCls} /></Field>
-            <Field label="Sale starts" id="saleStarts" hint="Optional. Empty = now."><input id="saleStarts" name="saleStarts" type="date" defaultValue={v.saleStarts} className={inputCls} /></Field>
-            <Field label="Sale ends" id="saleEnds" hint="Optional. Last day of the sale."><input id="saleEnds" name="saleEnds" type="date" defaultValue={v.saleEnds} className={inputCls} /></Field>
+            <Field label="Display price (Rs.)" id="price" hint="The regular price customers see. It is crossed out while a discount is running."><input id="price" name="price" inputMode="numeric" required value={price} onChange={(e) => setPrice(e.target.value)} className={inputCls} /></Field>
+            <Field label="Discount price (Rs.)" id="salePrice" hint="Optional. The lower price customers pay during the discount."><input id="salePrice" name="salePrice" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value)} className={inputCls} /></Field>
+            <div className="sm:col-span-2">
+              <Field label="Sale length" id="saleLength" hint="Starts the sale now and ends it exactly this long after you press Save. Choose “Use the dates below” to keep or set your own dates.">
+                <select id="saleLength" name="saleLength" value={length} onChange={(e) => setLength(e.target.value)} className={inputCls}>
+                  <option value="">Use the dates below</option>
+                  {SALE_LENGTH_DAYS.map((d) => <option key={d} value={d}>{d} day{d === 1 ? "" : "s"} from now</option>)}
+                </select>
+              </Field>
+            </div>
+            <Field label="Sale starts" id="saleStarts" hint="Optional. Empty = now."><input id="saleStarts" name="saleStarts" type="date" defaultValue={v.saleStarts} disabled={length !== ""} className={`${inputCls} disabled:opacity-50`} /></Field>
+            <Field label="Sale ends" id="saleEnds" hint="Optional. Last day of the sale (to midnight, Pakistan time)."><input id="saleEnds" name="saleEnds" type="date" defaultValue={v.saleEnds} disabled={length !== ""} className={`${inputCls} disabled:opacity-50`} /></Field>
           </div>
+          <label className="flex min-h-11 items-start gap-3 text-sm"><input type="checkbox" name="saleTimer" defaultChecked={v.saleTimer} className="mt-0.5 h-5 w-5" />
+            <span className="min-w-0"><span className="font-semibold">Show a countdown timer to customers</span><span className="block text-xs text-muted">Needs a sale price and an end (a length or an end date). When the time runs out the product goes back to its regular price on its own.</span></span>
+          </label>
           <p className="rounded-[var(--radius-sm)] bg-canvas p-3 text-sm" aria-live="polite" data-testid="price-preview">
             {off !== null ? <>Customers see <strong>Rs. {Number(sale).toLocaleString("en-PK")}</strong> with <s>Rs. {Number(price).toLocaleString("en-PK")}</s> and a <strong>−{off}%</strong> badge.</>
               : sale !== "" && Number(sale) >= Number(price) ? <span className="text-danger">The sale price must be lower than the price.</span>
               : <>No sale. Customers see the regular price.</>}
           </p>
+
+          {saleInfo && (
+            <section aria-label="Discount timer status" className="rounded-[var(--radius-md)] border border-line bg-surface p-4 text-sm" data-testid="sale-status">
+              <h3 className="font-bold">Discount and timer</h3>
+              <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-3 gap-y-1.5">
+                <dt className="text-muted">Status</dt>
+                <dd className="font-semibold">
+                  {saleInfo.statusKind === "none" && "No discount set"}
+                  {saleInfo.statusKind === "scheduled" && <span className="text-warn">Scheduled, not started yet</span>}
+                  {saleInfo.statusKind === "running" && <span className="text-ok">Running now</span>}
+                  {saleInfo.statusKind === "ended" && <span className="text-danger">Ended, selling at the regular price</span>}
+                </dd>
+                {saleInfo.startsText && <><dt className="text-muted">Starts</dt><dd>{saleInfo.startsText}</dd></>}
+                <dt className="text-muted">Ends</dt>
+                <dd>{saleInfo.endsText ?? (saleInfo.statusKind === "none" ? "—" : "No end date (runs until you remove the discount)")}</dd>
+                {saleInfo.leftText && <><dt className="text-muted">Time left</dt><dd className="font-semibold">{saleInfo.leftText}</dd></>}
+                <dt className="text-muted">Countdown for customers</dt>
+                <dd>{saleInfo.timerOn ? (saleInfo.statusKind === "running" ? "Showing on the product" : "On (shows while the discount is running)") : "Off"}</dd>
+              </dl>
+              <p className="mt-2 text-xs text-muted">Times are Pakistan time. This is the saved state; changes above apply when you press Save. When the discount ends, the regular price comes back by itself.</p>
+            </section>
+          )}
+
+          {saleInfo?.cost && (
+            <section aria-label="What this product cost" className="rounded-[var(--radius-md)] border border-line bg-surface p-4 text-sm" data-testid="cost-panel">
+              <h3 className="font-bold">What we bought it for</h3>
+              {saleInfo.cost.avg === null ? (
+                <p className="mt-2 text-warn">No purchase cost recorded yet. Record a purchase to set it{saleInfo.cost.isOwner ? ", or set the cost of existing stock on the Inventory page" : ""}.</p>
+              ) : (() => {
+                const cost = saleInfo.cost.avg, reg = Number(price), disc = sale === "" ? null : Number(sale);
+                const row = (label: string, p: number) => (
+                  <><dt className="text-muted">{label}</dt><dd className={p - cost < 0 ? "font-semibold text-danger" : "font-semibold"}>{rs(p - cost)} per unit{p > 0 ? ` (${Math.round(((p - cost) / p) * 100)}% of the price)` : ""}</dd></>
+                );
+                return (
+                  <dl className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-3 gap-y-1.5">
+                    <dt className="text-muted">Average purchase cost</dt><dd className="font-semibold">{rs(cost)} each</dd>
+                    {Number.isFinite(reg) && reg > 0 && row("Profit at display price", reg)}
+                    {disc !== null && Number.isFinite(disc) && disc > 0 && row("Profit at discount price", disc)}
+                  </dl>
+                );
+              })()}
+              {saleInfo.cost.unknownUnits > 0 && <p className="mt-2 text-xs text-warn">{saleInfo.cost.unknownUnits} unit(s) in stock have no recorded cost, so the average above only reflects units you have bought through Purchases.</p>}
+              <p className="mt-2 text-xs text-muted">The cost comes from your recorded purchases (weighted average), so it cannot be typed over here. Only you and people you have allowed can see it; customers never do.</p>
+            </section>
+          )}
         </div>
 
         <div {...panel("inventory")}>

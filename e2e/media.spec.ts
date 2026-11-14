@@ -74,7 +74,7 @@ test("admin upload: signed ticket, files go to Cloudinary, links land in the for
   await page.goto("/admin/products/new");
   await page.getByLabel("Product name").fill(NAME);
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("1500");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("1500");
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("5");
   await page.getByRole("tab", { name: "Publishing" }).click();

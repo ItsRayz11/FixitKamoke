@@ -14,11 +14,11 @@ import { displayName } from "@/lib/domain/display";
 import { formatPKR } from "@/lib/domain/money";
 
 export interface ShowcaseVariant {
-  id: string; slug: string; label: string; hex: string | null; price: number; salePrice: number | null; stock: number;
+  id: string; slug: string; label: string; hex: string | null; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number;
   images: { url: string; alt: string }[]; spin: string[];
 }
 export interface ShowcaseBase {
-  id: string; slug: string; name: string; brand: string | null; description: string; price: number; salePrice: number | null; stock: number;
+  id: string; slug: string; name: string; brand: string | null; description: string; price: number; salePrice: number | null; saleMsLeft: number | null; stock: number;
   images: { url: string; alt: string }[]; spin: string[];
 }
 
@@ -180,7 +180,7 @@ export function ProductShowcase({ base, variants, required, specsSlot, afterBuyS
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
           {showFrom
             ? <span className="text-2xl font-bold"><span className="mr-1 text-sm font-semibold text-muted">From</span>{" "}{formatPKR(lowest)}</span>
-            : <Price price={view.price} salePrice={view.salePrice} size="lg" />}
+            : <Price price={view.price} salePrice={view.salePrice} saleMsLeft={view.saleMsLeft} size="lg" />}
           {!unselected && <StockBadge stock={view.stock} />}
         </div>
         <p className="mt-1 text-xs text-muted" aria-live="polite">

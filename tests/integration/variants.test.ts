@@ -48,7 +48,7 @@ describe("finishes", () => {
 
 describe("listing and naming helpers", () => {
   const p = (slug: string, group: string | null, label: string | null, stock: number): Product => ({
-    id: slug, slug, name: "Item", brand: null, categoryId: null, categoryName: null, categorySlug: null, description: "", price: 1, salePrice: null, sku: null,
+    id: slug, slug, name: "Item", brand: null, categoryId: null, categoryName: null, categorySlug: null, description: "", price: 1, salePrice: null, saleMsLeft: null, sku: null,
     stock, specs: {}, compatibleDevices: [], warrantyInfo: null, image: null, variantGroup: group, variantLabel: label, variantHex: null, variantRequired: false, seoTitle: null, seoDescription: null,
   });
   it("shows a finish group once, preferring a finish that is in stock, with all finish dots", () => {

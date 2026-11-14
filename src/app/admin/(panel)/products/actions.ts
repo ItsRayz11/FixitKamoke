@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { pktDateToInstant } from "@/lib/domain/sale";
+import { resolveSaleWindow, type SaleWindow } from "@/lib/domain/sale";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { assertAdmin } from "@/lib/auth/session";
@@ -34,6 +34,8 @@ const schema = z.object({
   salePrice: optInt("Sale price"),
   saleStarts: z.string().trim().max(10),
   saleEnds: z.string().trim().max(10),
+  saleLength: z.string().trim().max(3),
+  saleTimer: z.boolean(),
   sku: optText,
   stock: int("Stock"),
   status: z.enum(["draft", "active", "archived"]),
@@ -106,7 +108,7 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   const id = String(form.get("id") ?? "");
   const parsed = schema.safeParse({
     name: form.get("name"), slug: form.get("slug") ?? "", brand: form.get("brand") ?? "", categoryId: form.get("categoryId") ?? "",
-    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", saleStarts: form.get("saleStarts") ?? "", saleEnds: form.get("saleEnds") ?? "", sku: form.get("sku") ?? "",
+    description: form.get("description") ?? "", price: form.get("price"), salePrice: form.get("salePrice") ?? "", saleStarts: form.get("saleStarts") ?? "", saleEnds: form.get("saleEnds") ?? "", saleLength: form.get("saleLength") ?? "", saleTimer: form.get("saleTimer") === "on", sku: form.get("sku") ?? "",
     stock: form.get("stock"), status: form.get("status") ?? (form.get("published") === "on" ? "active" : "draft"), seoTitle: form.get("seoTitle") ?? "", seoDescription: form.get("seoDescription") ?? "", warranty: form.get("warranty") ?? "", weight: form.get("weight") ?? "",
     specs: form.get("specs") ?? "", devices: form.get("devices") ?? "", images: form.get("images") ?? "", spin: form.get("spin") ?? "",
     variantGroup: form.get("variantGroup") ?? "", variantLabel: form.get("variantLabel") ?? "", variantHex: form.get("variantHex") ?? "",
@@ -117,11 +119,18 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
   const published = d.status === "active";
   const archived = d.status === "archived";
   if (d.salePrice !== null && d.salePrice >= d.price) return fail("Sale price must be lower than the regular price.");
-  const saleStarts = d.saleStarts ? pktDateToInstant(d.saleStarts, false) : null;
-  const saleEnds = d.saleEnds ? pktDateToInstant(d.saleEnds, true) : null;
-  if ((d.saleStarts && !saleStarts) || (d.saleEnds && !saleEnds)) return fail("Sale dates must be real dates.");
+  let prevWindow: SaleWindow ={ starts: null, ends: null };
+  if (id) {
+    const w = await (await getDb()).query<{ sale_starts_at: string | null; sale_ends_at: string | null }>("select sale_starts_at, sale_ends_at from products where id = $1", [id]);
+    if (w[0]) prevWindow = { starts: w[0].sale_starts_at ? new Date(w[0].sale_starts_at) : null, ends: w[0].sale_ends_at ? new Date(w[0].sale_ends_at) : null };
+  }
+  const win = resolveSaleWindow({ length: d.saleLength, startsDate: d.saleStarts, endsDate: d.saleEnds, prev: prevWindow });
+  if ("error" in win) return fail(win.error);
+  const saleStarts = win.starts, saleEnds = win.ends;
   if ((saleStarts || saleEnds) && d.salePrice === null) return fail("Enter a sale price, or clear the sale dates.");
-  if (saleStarts && saleEnds && saleEnds <= saleStarts) return fail("The sale must end after it starts.");
+  if (d.saleTimer && d.salePrice === null) return fail("A countdown timer needs a sale price.");
+  if (d.saleTimer && !saleEnds) return fail("A countdown timer needs an end: pick a sale length or an end date.");
+  const saleTimer = d.saleTimer && d.salePrice !== null;
   const variantGroup = d.variantGroup ? slugify(d.variantGroup) : null;
   if (d.variantGroup && !variantGroup) return fail("Could not make a finish group name from that text.");
   if (variantGroup && !d.variantLabel) return fail("Give this finish a name (for example Titanium Grey), or clear the finish group.");
@@ -147,16 +156,16 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
         if (!prev[0]) throw new Error("Product not found");
         await q.query(
           `update products set name=$2, slug=$3, brand=$4, category_id=$5, description=$6, price=$7, sale_price=$8, sku=$9, stock=$10, published=$11,
-             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, updated_at=now() where id=$1`,
-          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
+             specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, sale_timer=$25, updated_at=now() where id=$1`,
+          [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer],
         );
         await ledgerStockChange(q, id, d.stock - prev[0].stock, { key: `product:${id}:edit:${Date.now()}`, refType: "product", refId: id, actor: admin.email, note: "Edited on the product form" });
         await audit(admin.email, "product_updated", "product", id, { before: prev[0], after: { price: d.price, sale_price: d.salePrice, stock: d.stock, published: published } }, q);
       } else {
         const r = await q.query<{ id: string }>(
-          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required, sale_starts_at, sale_ends_at, seo_title, seo_description, archived)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) returning id`,
-          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
+          `insert into products(name, slug, brand, category_id, description, price, sale_price, sku, stock, published, specs, compatible_devices, warranty_info, weight_grams, variant_group, variant_label, variant_hex, variant_required, sale_starts_at, sale_ends_at, seo_title, seo_description, archived, sale_timer)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) returning id`,
+          [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived, saleTimer],
         );
         savedId = r[0].id;
         await ledgerStockChange(q, savedId, d.stock, { key: `product:${savedId}:initial`, refType: "product", refId: savedId, actor: admin.email, note: "Stock entered when the product was created" });

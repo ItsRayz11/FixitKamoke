@@ -214,7 +214,7 @@ test("admin can define finishes, and an incomplete finish is rejected with the f
   const name = `Finish Form Item ${Date.now()}`;
   await page.getByLabel("Product name").fill(name);
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("500");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("500");
   await page.getByRole("tab", { name: "Variants" }).click();
   await page.getByLabel("Finish group").fill("finish-form-item");
   await page.getByRole("button", { name: "Save product" }).click();

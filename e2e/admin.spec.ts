@@ -29,9 +29,9 @@ test("owner creates a category, a product that appears in the store, and a staff
   await page.getByLabel("Product name").fill("E2E Real Item");
   await page.getByLabel("Category").selectOption({ label: "Test Category" });
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("1000");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("1000");
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Sale price (Rs.)").fill("1500"); // invalid: higher than price
+  await page.getByLabel("Discount price (Rs.)").fill("1500"); // invalid: higher than price
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("4");
   await page.getByRole("tab", { name: "Publishing" }).click();
@@ -39,7 +39,7 @@ test("owner creates a category, a product that appears in the store, and a staff
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page.getByText("Sale price must be lower than the regular price.")).toBeVisible();
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Sale price (Rs.)").fill("800");
+  await page.getByLabel("Discount price (Rs.)").fill("800");
   await page.getByRole("tab", { name: "Media" }).click();
   await page.getByLabel("Image URLs").fill("http://insecure.example/x.jpg");
   await page.getByRole("button", { name: "Save product" }).click();

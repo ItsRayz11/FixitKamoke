@@ -19,10 +19,10 @@ test("the product editor groups fields in tabs, previews the discount and jumps 
   await page.getByRole("tab", { name: "Basics" }).click();
   await page.getByLabel("Product name").fill(NAME);
   await page.getByRole("tab", { name: "Pricing" }).click();
-  await page.getByLabel("Price (Rs.)", { exact: true }).fill("3000");
-  await page.getByLabel("Sale price (Rs.)").fill("2700");
+  await page.getByLabel("Display price (Rs.)", { exact: true }).fill("3000");
+  await page.getByLabel("Discount price (Rs.)").fill("2700");
   await expect(page.getByTestId("price-preview")).toContainText("−10%"); // a real, calculated discount
-  await page.getByLabel("Sale price (Rs.)").fill("3500");
+  await page.getByLabel("Discount price (Rs.)").fill("3500");
   await expect(page.getByTestId("price-preview")).toContainText("must be lower"); // never advertised
 
   // A problem in another tab is shown at the top and the editor jumps to the right tab.
@@ -31,7 +31,7 @@ test("the product editor groups fields in tabs, previews the discount and jumps 
   await expect(page.getByRole("alert").filter({ hasText: "Sale price must be lower" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Pricing" })).toHaveAttribute("aria-selected", "true");
 
-  await page.getByLabel("Sale price (Rs.)").fill("2700");
+  await page.getByLabel("Discount price (Rs.)").fill("2700");
   await page.getByRole("tab", { name: "Inventory" }).click();
   await page.getByLabel("Stock quantity").fill("6");
   await page.getByRole("tab", { name: "Media" }).click();
