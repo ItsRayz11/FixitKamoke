@@ -1,7 +1,7 @@
 import type { Db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { queueStaffAlert } from "@/lib/email/alerts";
-import { hashToken } from "./create-order";
+import { hashToken } from "./token";
 import { isManualMethod } from "@/lib/domain/payment-label";
 import { cleanCustomerUploads } from "@/lib/cloudinary";
 

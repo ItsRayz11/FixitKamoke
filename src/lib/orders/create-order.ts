@@ -13,6 +13,7 @@ import { queueStaffAlert } from "@/lib/email/alerts";
 import { displayName } from "@/lib/domain/display";
 import { paymentLabel } from "@/lib/domain/payment-label";
 import { crossedIntoLow } from "@/lib/domain/stock";
+import { costOrderLines } from "@/lib/finance/orders";
 
 export const checkoutSchema = z.object({
   idempotencyKey: z.string().min(16).max(100),
@@ -39,7 +40,7 @@ export class CheckoutError extends Error {
 }
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
-export const hashToken = sha256;
+export { hashToken } from "./token";
 
 export interface CreatedOrder {
   orderNumber: string;
@@ -157,6 +158,7 @@ export async function createOrder(db: Db, raw: unknown, opts: { customerId?: str
         [orderId, l.productId, l.name, l.sku, l.unitPrice, l.quantity, l.unitPrice * l.quantity],
       );
     }
+    await costOrderLines(q, orderId); // stock ledger + frozen cost per line
     await q.query("insert into order_status_history (order_id, from_status, to_status, actor) values ($1, null, 'pending_confirmation', 'customer')", [orderId]);
     await q.query("insert into analytics_events(name, path) values ('order_placed', '/checkout')");
     await queueStaffAlert(q, "order", orderNumber, `${lines.reduce((s, l) => s + l.quantity, 0)} item(s), ${new Intl.NumberFormat("en-PK").format(totals.total)} PKR, ${input.paymentMethod === "cod" ? (adv.advance > 0 ? `cash on delivery, advance of ${new Intl.NumberFormat("en-PK").format(adv.advance)} PKR required first` : "cash on delivery") : input.paymentMethod === "online" ? `online payment via ${input.paymentProvider} (awaiting payment)` : paymentLabel(input.paymentMethod).toLowerCase()}, ${input.city.slice(0, 40)}`);

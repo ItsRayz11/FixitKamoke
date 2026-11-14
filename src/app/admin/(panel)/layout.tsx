@@ -3,11 +3,22 @@ import { getAttentionCounts } from "@/lib/admin/stats";
 import { AdminShell, type NavItem } from "@/components/admin/admin-shell";
 import { RowLabels } from "@/components/admin/row-labels";
 import { logoutAction } from "../actions";
+import { financePermsOf } from "@/lib/finance/perms";
+import type { FinancePerm } from "@/lib/finance/perms-core";
 
-const NAV: (NavItem & { min: "staff" | "manager" | "owner" })[] = [
+const NAV: (NavItem & { min: "staff" | "manager" | "owner"; perm?: FinancePerm })[] = [
   { href: "/admin", label: "Dashboard", group: "Overview", min: "staff" },
   { href: "/admin/analytics", label: "Funnel", group: "Overview", min: "manager" },
   { href: "/admin/preview", label: "Phone preview", group: "Overview", min: "staff" },
+  { href: "/admin/finance", label: "Financial overview", group: "Finance", min: "staff", perm: "finance_view" },
+  { href: "/admin/finance/purchases", label: "Purchases", group: "Finance", min: "staff", perm: "finance_write" },
+  { href: "/admin/finance/suppliers", label: "Suppliers", group: "Finance", min: "staff", perm: "finance_write" },
+  { href: "/admin/finance/counter", label: "Shop counter", group: "Finance", min: "staff", perm: "pos" },
+  { href: "/admin/finance/expenses", label: "Expenses", group: "Finance", min: "staff", perm: "finance_write" },
+  { href: "/admin/finance/accounts", label: "Accounts", group: "Finance", min: "staff", perm: "finance_view" },
+  { href: "/admin/finance/credit", label: "Credit / Udhaar", group: "Finance", min: "staff", perm: "finance_view" },
+  { href: "/admin/finance/reports", label: "Reports", group: "Finance", min: "staff", perm: "finance_view" },
+  { href: "/admin/finance/closing", label: "Daily closing", group: "Finance", min: "staff", perm: "finance_close" },
   { href: "/admin/orders", label: "Orders", group: "Sales", min: "staff" },
   { href: "/admin/repairs", label: "Repairs", group: "Sales", min: "staff" },
   { href: "/admin/customers", label: "Customers", group: "Sales", min: "manager" },
@@ -34,7 +45,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   const admin = await requireAdmin("staff");
   const counts = await getAttentionCounts();
   const badge: Record<string, number> = { "/admin/orders": counts.orders, "/admin/repairs": counts.repairs, "/admin/messages": counts.messages };
-  const items: NavItem[] = NAV.filter((n) => hasRole(admin, n.min)).map((n) => ({ href: n.href, label: n.label, group: n.group, badge: badge[n.href] }));
+  const perms = await financePermsOf(admin);
+  const items: NavItem[] = NAV.filter((n) => hasRole(admin, n.min) && (!n.perm || admin.role === "owner" || perms.includes(n.perm))).map((n) => ({ href: n.href, label: n.label, group: n.group, badge: badge[n.href] }));
   return (
     <AdminShell
       items={items}

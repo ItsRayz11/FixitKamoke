@@ -1,3 +1,4 @@
+import { syncOrderReceipts } from "@/lib/finance/orders";
 import { queuePaymentConfirmed } from "@/lib/email/order-events";
 import crypto from "node:crypto";
 import type { Db } from "@/lib/db";
@@ -97,6 +98,7 @@ export async function settlePayment(db: Db, s: Settlement): Promise<{ outcome: O
       // Money arrived for an order that was cancelled in the meantime: it still counts as paid, and staff must refund it.
       await audit(`gateway:${s.provider}`, ["cancelled", "rejected"].includes(o.status) ? "payment_received_after_cancel" : "payment_received", "order", a.order_id, { reference: a.reference, amount: a.amount }, q);
       await queuePaymentConfirmed(q, a.order_id);
+      await syncOrderReceipts(q, a.order_id, `gateway:${s.provider}`);
       return { ...base, outcome: "paid" as Outcome, reason: null };
     }
     if (a.status === "created") {

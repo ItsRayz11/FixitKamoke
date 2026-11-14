@@ -29,6 +29,15 @@ const ICON: Record<string, string> = {
   "/admin/settings": "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12l2-1-2-4-2 .5-1.5-1L15 4h-4l-.5 2.5-1.5 1L7 7 5 11l2 1v2l-2 1 2 4 2-.5 1.5 1L11 20h4l.5-2.5 1.5-1 2 .5 2-4-2-1z",
   "/admin/users": "M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8",
   "/admin/security": "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  "/admin/finance": "M3 3v18h18M7 15l4-4 3 3 5-6",
+  "/admin/finance/purchases": "M6 6h15l-1.5 9h-12zM6 6 5 3H2M9 20h.01M17 20h.01",
+  "/admin/finance/suppliers": "M3 21h18M5 21V8l7-5 7 5v13M9 12h6M9 16h6",
+  "/admin/finance/counter": "M4 4h16v6H4zM6 10v10h12V10M10 14h4",
+  "/admin/finance/expenses": "M12 3v18M16 7H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H8",
+  "/admin/finance/accounts": "M3 7h18v12H3zM3 7l3-4h12l3 4M16 13h2",
+  "/admin/finance/credit": "M4 6h16v12H4zM8 10h8M8 14h5",
+  "/admin/finance/reports": "M5 3h14v18H5zM9 8h6M9 12h6M9 16h3",
+  "/admin/finance/closing": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12l3 3 5-6",
   "/admin/audit": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
 };
 
@@ -36,7 +45,7 @@ function Glyph({ d, size = 22 }: { d: string; size?: number }) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>;
 }
 
-const isActive = (path: string, href: string) => (href === "/admin" ? path === "/admin" : path === href || path.startsWith(`${href}/`));
+const isActive = (path: string, href: string) => (href === "/admin" || href === "/admin/finance" ? path === href : path === href || path.startsWith(`${href}/`));
 
 function Badge({ n, compact }: { n?: number; compact?: boolean }) {
   if (!n) return null;

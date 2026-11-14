@@ -1,3 +1,4 @@
+import { recognizeRepair } from "@/lib/finance/repairs";
 import crypto from "node:crypto";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
@@ -149,6 +150,10 @@ export async function updateRepair(db: Db, id: string, u: RepairUpdate, actor: s
          staff_notes = case when $5::text is null then staff_notes else nullif($5::text, '') end, status = $6,
          approved_at = $7, approved_amount = $8, approved_by = case when $9::text = '' then null when $9::text is null then approved_by else $9::text end, updated_at = now() where id = $1`,
       [id, amount, amount === null ? false : (u.estimateIsConfirmed ?? false), u.customerMessage ?? null, u.staffNotes ?? null, u.to ?? r.status, approvedAt, approvedAmount, approvedBy === null ? "" : approvedBy ?? null]);
+    if (u.to === "completed" && r.status !== "completed") {
+      await q.query("update repair_inquiries set completed_at = now() where id = $1", [id]);
+      await recognizeRepair(q, id, actor); // income is booked once, at completion
+    }
     if (u.to && u.to !== r.status) {
       await q.query("insert into repair_status_history(repair_id, from_status, to_status, actor, note) values ($1,$2,$3,$4,$5)", [id, r.status, u.to, actor, u.note ?? null]);
       if (r.email) {

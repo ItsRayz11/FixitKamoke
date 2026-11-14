@@ -8,6 +8,7 @@ import { assertAdmin } from "@/lib/auth/session";
 import { audit } from "@/lib/audit";
 import { flash, slugify } from "@/lib/admin/flash";
 import { releaseRestockedAlerts } from "@/lib/stock-alerts";
+import { adjustStock, ledgerStockChange } from "@/lib/finance/stock";
 
 const int = (label: string) => z.coerce.number({ message: `${label} must be a number` }).int(`${label} must be a whole number`).min(0, `${label} cannot be negative`);
 /** Empty string means "not set"; anything else must be a non-negative whole number. */
@@ -149,6 +150,7 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
              specs=$12, compatible_devices=$13, warranty_info=$14, weight_grams=$15, variant_group=$16, variant_label=$17, variant_hex=$18, variant_required=$19, sale_starts_at=$20, sale_ends_at=$21, seo_title=$22, seo_description=$23, archived=$24, updated_at=now() where id=$1`,
           [id, d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
         );
+        await ledgerStockChange(q, id, d.stock - prev[0].stock, { key: `product:${id}:edit:${Date.now()}`, refType: "product", refId: id, actor: admin.email, note: "Edited on the product form" });
         await audit(admin.email, "product_updated", "product", id, { before: prev[0], after: { price: d.price, sale_price: d.salePrice, stock: d.stock, published: published } }, q);
       } else {
         const r = await q.query<{ id: string }>(
@@ -157,6 +159,7 @@ export async function saveProductAction(_prev: ProductFormState, form: FormData)
           [d.name, slug, d.brand, d.categoryId, d.description, d.price, d.salePrice, d.sku, d.stock, published, JSON.stringify(parseSpecs(d.specs)), devices, d.warranty, d.weight, variantGroup, variantLabel, variantHex, variantRequired, saleStarts, saleEnds, d.seoTitle || null, d.seoDescription || null, archived],
         );
         savedId = r[0].id;
+        await ledgerStockChange(q, savedId, d.stock, { key: `product:${savedId}:initial`, refType: "product", refId: savedId, actor: admin.email, note: "Stock entered when the product was created" });
         await audit(admin.email, "product_created", "product", savedId, { name: d.name, price: d.price, stock: d.stock }, q);
       }
       await q.query("delete from product_images where product_id = $1", [savedId]);
@@ -180,7 +183,7 @@ export async function adjustStockAction(form: FormData) {
   const db = await getDb();
   const prev = await db.query<{ stock: number; name: string }>("select stock, name from products where id = $1", [id]);
   if (!prev[0]) flash("/admin/inventory", { error: "Product not found." });
-  await db.query("update products set stock = $2, updated_at = now() where id = $1", [id, stock.data!]);
+  await db.tx((q) => adjustStock(q, id, stock.data!, { key: `adjust:${id}:${Date.now()}`, refType: "product", refId: id, actor: admin.email, note: "Set on the Inventory page" }));
   await audit(admin.email, "stock_adjusted", "product", id, { from: prev[0].stock, to: stock.data, name: prev[0].name });
   await releaseRestockedAlerts(db);
   flash("/admin/inventory", { ok: `Stock for “${prev[0].name}” set to ${stock.data}.` });

@@ -1,3 +1,4 @@
+import { ReturnGoods } from "@/components/admin/return-goods";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { hasRole, requireAdmin } from "@/lib/auth/session";
@@ -201,6 +202,7 @@ export default async function OrderAdmin({ params, searchParams }: { params: Pro
           {history.map((h, i) => <li key={i}><strong>{STATUS_LABEL[h.to_status] ?? h.to_status}</strong> · {fmtDate(h.created_at)} · {h.actor}{h.note && <> — {h.note}</>}</li>)}
         </ol>
       </Card></div>
+      <ReturnGoods orderId={o.id} status={o.status} />
     </div>
   );
 }

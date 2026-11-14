@@ -5,6 +5,7 @@ import { releaseRestockedAlerts } from "@/lib/stock-alerts";
 import { queuePaymentConfirmed } from "@/lib/email/order-events";
 import { advanceFor } from "@/lib/domain/advance";
 import { formatPKR } from "@/lib/domain/money";
+import { recognizeOrder, restockOrder, syncOrderReceipts, syncOrderRefund } from "@/lib/finance/orders";
 import { canTransition, CLOSED, RESTOCKS_ON, type OrderStatus } from "@/lib/domain/order-state";
 
 export class OrderAdminError extends Error {}
@@ -40,13 +41,13 @@ export async function transitionOrder(db: Db, orderId: string, to: OrderStatus, 
       throw new OrderAdminError("Check that the payment arrived and mark it paid before confirming this order.");
     }
     if (RESTOCKS_ON.includes(to)) {
-      await q.query(
-        "update products p set stock = p.stock + i.quantity, updated_at = now() from order_items i where i.order_id = $1 and i.product_id = p.id", [orderId]);
+      await restockOrder(q, orderId, actor); // ledgered, once per line, at the cost the goods left with
       await releaseRestockedAlerts(q); // someone may be waiting for exactly this item
       // An order that never happened must not use up a limited coupon.
       if (o.coupon_code) await q.query("update coupons set used_count = greatest(0, used_count - 1) where code = $1", [o.coupon_code]);
     }
-    await q.query("update orders set status = $2, dispatched_at = case when $2 = 'shipped' then coalesce(dispatched_at, now()) else dispatched_at end, updated_at = now() where id = $1", [orderId, to]);
+    await q.query("update orders set status = $2, dispatched_at = case when $2 = 'shipped' then coalesce(dispatched_at, now()) else dispatched_at end, delivered_at = case when $2 = 'delivered' then coalesce(delivered_at, now()) else delivered_at end, updated_at = now() where id = $1", [orderId, to]);
+    if (to === "delivered") { await syncOrderReceipts(q, orderId, actor); await recognizeOrder(q, orderId, actor); }
     await q.query("insert into order_status_history(order_id, from_status, to_status, actor, note) values ($1,$2,$3,$4,$5)", [orderId, o.status, to, actor, note ?? null]);
     await audit(actor, "order_status_changed", "order", orderId, { number: o.order_number, from: o.status, to, note: note ?? null }, q);
     const kind = EMAIL_KIND[to];
@@ -100,6 +101,7 @@ export async function setPaymentStatus(db: Db, orderId: string, status: "unpaid"
     // money records always match what happened.
     if (status === "paid" && o.payment_method === "cod") throw new OrderAdminError("For cash on delivery, use \u201cRecord cash collected\u201d after delivery. It marks the order paid and keeps the money records right.");
     await q.query("update orders set payment_status = $2, updated_at = now() where id = $1", [orderId, status]);
+    await syncOrderReceipts(q, orderId, actor);
     await audit(actor, "order_payment_status", "order", orderId, { status, from: o.payment_status }, q);
     if (status === "paid") await queuePaymentConfirmed(q, orderId);
   });
@@ -124,6 +126,7 @@ export async function verifyAdvance(db: Db, orderId: string, received: number, a
     await q.query(
       "update orders set advance_paid = $2, payment_status = $3, advance_verified_at = now(), advance_verified_by = $4, updated_at = now() where id = $1",
       [orderId, received, received === o.total ? "paid" : "partial", actor]);
+    await syncOrderReceipts(q, orderId, actor);
     await audit(actor, "advance_verified", "order", orderId, { number: o.order_number, received }, q);
     await q.query("insert into order_status_history(order_id, from_status, to_status, actor, note) values ($1,$2,$2,$3,$4)", [orderId, o.status, actor, `Advance of ${formatPKR(received)} verified`]);
     if (o.email) {
@@ -173,6 +176,7 @@ export async function recordBalanceCollected(db: Db, orderId: string, amount: nu
     const due = o.total - o.advance_paid;
     if (amount !== due) throw new OrderAdminError(`The balance due is ${formatPKR(due)}. ${formatPKR(amount)} does not match. Check the amount with the courier.`);
     await q.query("update orders set balance_collected = $2, balance_collected_at = now(), balance_collected_by = $3, payment_status = 'paid', updated_at = now() where id = $1", [orderId, amount, actor]);
+    await syncOrderReceipts(q, orderId, actor);
     await audit(actor, "cod_balance_collected", "order", orderId, { number: o.order_number, amount }, q);
     await q.query("insert into order_status_history(order_id, from_status, to_status, actor, note) values ($1,$2,$2,$3,$4)", [orderId, o.status, actor, `Cash on delivery collected: ${formatPKR(amount)}`]);
   });
@@ -202,6 +206,7 @@ export async function recordRefund(db: Db, orderId: string, amount: number, acto
     const total = o.refunded_amount + amount;
     const status = total === received ? "refunded" : "partially_refunded";
     await q.query("update orders set refunded_amount = $2, payment_status = $3, updated_at = now() where id = $1", [orderId, total, status]);
+    await syncOrderRefund(q, orderId, actor);
     await audit(actor, "order_refund_recorded", "order", orderId, { number: o.order_number, amount, totalRefunded: total, note: note ?? null }, q);
     await q.query("insert into order_status_history(order_id, from_status, to_status, actor, note) values ($1,$2,$2,$3,$4)", [orderId, o.status, actor, `Refund of ${formatPKR(amount)} recorded${note ? `: ${note}` : ""}`]);
     if (o.email) {

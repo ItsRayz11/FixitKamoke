@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Db } from "@/lib/db";
-import { hashToken } from "./create-order";
+import { hashToken } from "./token";
 import { normalizePkMobile } from "@/lib/domain/phone";
 
 export interface OrderView {

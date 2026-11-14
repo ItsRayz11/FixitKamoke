@@ -7,6 +7,7 @@ import { KeepForm } from "@/components/admin/keep-form";
 import { REPAIR_LABEL, nextRepairStatuses, type RepairStatus } from "@/lib/domain/repair-state";
 import { optimizeImageUrl } from "@/lib/domain/images";
 import { updateRepairAction } from "../actions";
+import { RepairMoney } from "@/components/admin/repair-money";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,7 @@ export default async function RepairAdmin({ params, searchParams }: { params: Pr
           {history.map((h, i) => <li key={i}><strong>{REPAIR_LABEL[h.to_status as RepairStatus] ?? h.to_status}</strong> · {fmtDate(h.created_at)} · {h.actor}{h.note && <> — {h.note}</>}</li>)}
         </ol>
       </Card></div>
+      <RepairMoney repairId={r.id} />
     </div>
   );
 }
