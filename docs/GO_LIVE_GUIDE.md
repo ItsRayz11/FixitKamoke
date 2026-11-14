@@ -42,7 +42,7 @@ Vercel's free "Hobby" plan is for non-commercial use only, so a live shop needs 
 | Setting | What it is | Needed |
 |---|---|---|
 | `DATABASE_URL` | Neon pooled connection string | **yes** |
-| `SITE_URL` | Your real address, e.g. `https://www.yourshop.pk`, no trailing slash | **yes** |
+| `SITE_URL` | Your real address, `https://fixitkamoke.xyz`, no trailing slash | **yes** |
 | `ADMIN_SETUP_TOKEN` | 16+ random characters, used once to create the owner login, then delete it | first day only |
 | `TWO_FACTOR_KEY` | 32+ random characters; turns on two-step sign-in for staff | recommended |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Order and alert emails | recommended |

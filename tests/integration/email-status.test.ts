@@ -10,7 +10,7 @@ let db: Db;
 let item: string;
 let n = 0;
 const key = () => `email-test-key-${++n}-${"x".repeat(10)}`;
-const ctx = { baseUrl: "https://fixit-kamoke.vercel.app", whatsappNumber: null, contactEmail: null };
+const ctx = { baseUrl: "https://fixitkamoke.xyz", whatsappNumber: null, contactEmail: null };
 const cfg = { apiKey: "re_test_secret_value", from: "Fixit <orders@example.test>" };
 
 const sent: { to: string; subject: string; text: string }[] = [];

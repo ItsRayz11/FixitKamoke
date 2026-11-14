@@ -1,6 +1,6 @@
 # Fixit: final audit and upgrade report
 
-Date: 2026-11-13. Site: https://fixit-kamoke.vercel.app. Written for the owner and for whoever continues the work.
+Date: 2026-11-13. Site: https://fixitkamoke.xyz. Written for the owner and for whoever continues the work.
 
 **Where things stand:** the store was already a complete, tested shop. This pass audited it, fixed live defects, and built the missing business features (cash-on-delivery advance, wallet payments, courier and refunds, discounts, repair approval, a clearer admin). **Production was not changed by this work** except one incident, described in section 3.
 
@@ -83,7 +83,7 @@ Design decision, not a bug: a customer can approve an *estimate* on the repair p
 ## G. Owner action checklist (only the owner can do these)
 1. **Decide about the live data** (section 3): the demo products and demo delivery zones currently visible on the live site.
 2. **Back up Neon**, then run the migrations (docs/MIGRATION_REVIEW_011_016.md). Not done yet.
-3. In Vercel (Production): set `SITE_URL=https://fixit-kamoke.vercel.app`, `ADMIN_SETUP_TOKEN` (16+ characters) and `TWO_FACTOR_KEY` (32+ random characters), then redeploy. Create the owner at `/admin/setup`, then remove the setup token.
+3. In Vercel (Production): set `SITE_URL=https://fixitkamoke.xyz`, `ADMIN_SETUP_TOKEN` (16+ characters) and `TWO_FACTOR_KEY` (32+ random characters), then redeploy. Create the owner at `/admin/setup`, then remove the setup token.
 4. Resend account, verified sending domain, `RESEND_API_KEY`, `EMAIL_FROM`; then "Send test email".
 5. Bank account details and wallet numbers (Admin > Payments).
 6. Decide the COD advance rule (Admin > Payments > Cash on delivery > Configure).

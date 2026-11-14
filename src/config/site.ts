@@ -8,8 +8,12 @@ const env = (k: string) => {
   return v ? v : null;
 };
 
+/** The shop's real public address. Used on production unless SITE_URL overrides it. */
+export const PRODUCTION_URL = "https://fixitkamoke.xyz";
+
 function vercelUrl(): string | null {
-  const host = process.env.VERCEL_ENV === "production" ? env("VERCEL_PROJECT_PRODUCTION_URL") : process.env.VERCEL_ENV === "preview" ? env("VERCEL_URL") : null;
+  if (process.env.VERCEL_ENV === "production") return PRODUCTION_URL;
+  const host = process.env.VERCEL_ENV === "preview" ? env("VERCEL_URL") : null;
   return host ? `https://${host.replace(/^https?:\/\//, "")}` : null;
 }
 
@@ -20,7 +24,7 @@ export const site = {
   currency: "PKR",
   // SITE_URL is read at run time; NEXT_PUBLIC_SITE_URL is baked in at build time. Prefer SITE_URL.
   // Fallbacks on Vercel, so links, emails and payment callbacks never point at localhost when SITE_URL was forgotten:
-  // production uses the project's production domain; a preview uses its own address. Local development still gets localhost.
+  // production uses fixitkamoke.xyz; a preview uses its own address. Local development still gets localhost.
   baseUrl: (env("SITE_URL") ?? env("NEXT_PUBLIC_SITE_URL") ?? vercelUrl() ?? "http://localhost:3000").replace(/\/$/, ""),
   /** E.164 digits only, no plus sign, e.g. 923001234567. Owner must supply. */
   whatsappNumber: env("NEXT_PUBLIC_WHATSAPP_NUMBER")?.replace(/\D/g, "") ?? null,

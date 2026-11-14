@@ -77,7 +77,7 @@ describe("courier and notes", () => {
     const mail = renderOrderEmail("order_shipped", {
       orderNumber: "FX-1", customerName: "A B", status: "shipped", paymentMethod: "cod", subtotal: 3000, discount: 0, shippingFee: 0, shippingStatus: "quoted", total: 3000,
       advancePaid: 1000, carrier: "TCS", trackingNumber: "T-9", items: [{ name: "X", quantity: 1, lineTotal: 3000 }],
-    }, { baseUrl: "https://fixit-kamoke.vercel.app", shopName: "Fixit" } as never);
+    }, { baseUrl: "https://fixitkamoke.xyz", shopName: "Fixit" } as never);
     expect(mail?.text).toContain("Courier: TCS, tracking number: T-9");
     expect(mail?.text).toContain("Rs. 2,000 ready to pay on delivery");
   });

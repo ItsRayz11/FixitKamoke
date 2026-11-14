@@ -23,7 +23,7 @@ export default async function SettingsAdmin({ searchParams }: { searchParams: Pr
         <Card title="Website address (domain)" id="domain">
           <p className="mt-2 text-sm">Right now the shop believes its address is <code className="break-all rounded bg-canvas px-1.5 py-0.5">{site.baseUrl}</code>.</p>
           {/localhost|127\.0\.0\.1/.test(site.baseUrl)
-            ? <p role="alert" className="mt-2 rounded-[var(--radius-sm)] bg-amber-50 p-3 text-sm font-semibold text-warn">That is a local test address. Before launch, set <code>SITE_URL</code> on your host to your real domain (for example https://www.yourshop.pk). Until then, links in emails, the sitemap, Google results and payment return pages point to the wrong place.</p>
+            ? <p role="alert" className="mt-2 rounded-[var(--radius-sm)] bg-amber-50 p-3 text-sm font-semibold text-warn">That is a local test address. Before launch, set <code>SITE_URL</code> on your host to your real domain (https://fixitkamoke.xyz). Until then, links in emails, the sitemap, Google results and payment return pages point to the wrong place.</p>
             : <p className="mt-2 text-sm text-ok font-semibold">Looks like a real address.</p>}
           <p className="mt-2 text-xs text-muted">The domain is set where the site is hosted, not in this form, because it has to match the domain you bought and connected, and changing it by mistake would break every link. To change it, update <code>SITE_URL</code> in your host&apos;s settings and redeploy.</p>
         </Card>
