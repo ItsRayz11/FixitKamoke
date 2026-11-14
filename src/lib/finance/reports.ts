@@ -157,3 +157,31 @@ export async function closingsReport(q: Queryable, from: string, to: string) {
   return q.query(`select close_date::text as date, opening, received, paid_out, transfers_net, expected, counted, difference, status, closed_by, approved_by, closed_at::text as closed_at
     from daily_closings where close_date between $1::date and $2::date order by close_date, closed_at`, [from, to]);
 }
+
+export interface StockCoverRow { id: string; name: string; sku: string | null; stock: number; sold30: number; perDay: number; daysLeft: number | null; suggest: number }
+/**
+ * Sales speed per product over the last 30 days (customer orders and counter sales, net of cancellations and returns),
+ * how many days the shelf will last at that speed, and how many to order to cover the next 30 days. Nothing is guessed:
+ * a product with no sales has no "days left".
+ */
+export async function stockCover(q: Queryable): Promise<StockCoverRow[]> {
+  const r = await q.query<{ id: string; name: string; variant_label: string | null; sku: string | null; stock: number; sold: string | number }>(
+    `select p.id, p.name, p.variant_label, p.sku, p.stock, coalesce(-sum(m.qty_delta) filter (where m.kind in ('sale','sale_cancel','pos_sale','return')), 0) as sold
+     from products p left join stock_movements m on m.product_id = p.id and m.created_at >= now() - interval '30 days'
+     where not p.archived group by p.id order by p.name`);
+  return r.map((x) => {
+    const sold30 = Math.max(0, Number(x.sold));
+    const perDay = sold30 / 30;
+    return { id: x.id, name: x.variant_label ? `${x.name} (${x.variant_label})` : x.name, sku: x.sku, stock: x.stock, sold30, perDay: Math.round(perDay * 100) / 100,
+      daysLeft: perDay > 0 ? Math.floor(x.stock / perDay) : null, suggest: Math.max(0, Math.ceil(perDay * 30) - x.stock) };
+  });
+}
+
+/** Every stock change in a date range (Pakistan time), newest first: the stock ledger as a report. */
+export async function stockMovementsReport(q: Queryable, from: string, to: string) {
+  return q.query<{ date: string; product: string; kind: string; qty: number; unit_cost: string | number | null; reference: string | null; by: string | null }>(
+    `select to_char(m.created_at at time zone 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') as date, p.name as product, m.kind, m.qty_delta as qty, m.unit_cost,
+            coalesce(m.note, m.ref_type) as reference, m.actor as by
+     from stock_movements m join products p on p.id = m.product_id
+     where (m.created_at at time zone 'Asia/Karachi')::date between $1::date and $2::date order by m.created_at desc, m.id desc limit 5000`, [from, to]);
+}

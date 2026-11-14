@@ -4,7 +4,7 @@ import { expensesByCategory } from "./expenses";
 import type { Col } from "./export";
 import type { FinancePerm } from "./perms-core";
 import { repairProfit } from "./repairs";
-import { accountMovements, cashCollection, closingsReport, inventoryValuation, productProfitability, profitAndLoss, salesReport, supplierPurchases } from "./reports";
+import { accountMovements, cashCollection, closingsReport, inventoryValuation, productProfitability, profitAndLoss, salesReport, stockCover, stockMovementsReport, supplierPurchases } from "./reports";
 
 export interface ReportData { title: string; note?: string; cols: Col[]; rows: Record<string, unknown>[] }
 interface Def { label: string; perm: FinancePerm; build: (q: Queryable, from: string, to: string, account: string) => Promise<ReportData> }
@@ -30,6 +30,12 @@ export const REPORTS: Record<string, Def> = {
   purchases: { label: "Supplier purchases", perm: "finance_costs", build: async (q, from, to) => ({ title: "Supplier purchases", cols: [{ key: "supplier", label: "Supplier" }, { key: "purchases", label: "Purchases" }, { key: "total", label: "Total" }, { key: "paid", label: "Paid" }, { key: "owed", label: "Still owed" }],
     rows: (await supplierPurchases(q, from, to)).map((r) => ({ ...r, owed: n(r.total) - n(r.paid) })) }) },
   inventory: { label: "Inventory valuation", perm: "finance_costs", build: async (q) => ({ title: "Inventory valuation", note: "Moving average cost. Units with no known cost are listed but not valued.", cols: [{ key: "name", label: "Product" }, { key: "sku", label: "SKU" }, { key: "stock", label: "In stock" }, { key: "avg_cost", label: "Average cost" }, { key: "valued_units", label: "Valued units" }, { key: "unknown_units", label: "Unknown-cost units" }, { key: "value", label: "Value" }], rows: (await inventoryValuation(q)) as unknown as Record<string, unknown>[] }) },
+  cover: { label: "Reorder planner (days of stock left)", perm: "finance_view", build: async (q) => ({ title: "Reorder planner", note: "Based on the last 30 days of sales. Suggested order covers the next 30 days. Products with no sales have no estimate.",
+    cols: [{ key: "name", label: "Product" }, { key: "sku", label: "SKU" }, { key: "stock", label: "In stock" }, { key: "sold30", label: "Sold in 30 days" }, { key: "perDay", label: "Per day" }, { key: "daysLeft", label: "Days left" }, { key: "suggest", label: "Suggested order" }],
+    rows: ((await stockCover(q)) as unknown as Record<string, unknown>[]).sort((a, b) => (a.daysLeft == null ? 9e9 : Number(a.daysLeft)) - (b.daysLeft == null ? 9e9 : Number(b.daysLeft))) }) },
+  stock: { label: "Stock movements (ledger)", perm: "finance_costs", build: async (q, from, to) => ({ title: "Stock movements", note: "Every change to stock, with who made it. Up to 5,000 newest rows in the range.",
+    cols: [{ key: "date", label: "When" }, { key: "product", label: "Product" }, { key: "kind", label: "Type" }, { key: "qty", label: "Change" }, { key: "unit_cost", label: "Unit cost" }, { key: "reference", label: "Reference" }, { key: "by", label: "By" }],
+    rows: (await stockMovementsReport(q, from, to)) as unknown as Record<string, unknown>[] }) },
   expenses: { label: "Expenses by category", perm: "finance_costs", build: async (q, from, to) => ({ title: "Expenses by category", cols: [{ key: "name", label: "Category" }, { key: "total", label: "Total" }], rows: (await expensesByCategory(q, from, to)).filter((r) => n(r.total) !== 0) }) },
   accounts: { label: "Account movements", perm: "finance_view", build: async (q, from, to, account) => ({ title: `Account movements (${account})`, cols: [{ key: "date", label: "Date" }, { key: "memo", label: "What" }, { key: "ref_type", label: "Source" }, { key: "debit", label: "In" }, { key: "credit", label: "Out" }, { key: "actor", label: "By" }], rows: await accountMovements(q, account, from, to) }) },
   credit: { label: "Credit balances (aging)", perm: "finance_view", build: async (q) => {

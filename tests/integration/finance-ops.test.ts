@@ -10,7 +10,7 @@ import { ringUpSale, voidPosSale } from "@/lib/finance/pos";
 import { aging, payCredit, setCreditLimit, CreditLimitError } from "@/lib/finance/credit";
 import { addRepairPart, recordRepairPayment, repairProfit, setRepairFinance } from "@/lib/finance/repairs";
 import { closeDay, computeClosing, correctClosing } from "@/lib/finance/closing";
-import { overview, profitAndLoss, profitSeries, salesReport, cashCollection, inventoryValuation, productProfitability } from "@/lib/finance/reports";
+import { overview, profitAndLoss, profitSeries, salesReport, cashCollection, inventoryValuation, productProfitability, stockCover, stockMovementsReport } from "@/lib/finance/reports";
 import { toCsv, toExcelXml } from "@/lib/finance/export";
 import { createPurchase, receivePurchase } from "@/lib/finance/purchases";
 import { can, permsFor } from "@/lib/finance/perms-core";
@@ -290,5 +290,22 @@ describe("reports, exports and permissions", () => {
   it("whole ledger still balances after everything above", async () => {
     expect(await ledgerIsBalanced(db)).toBe(true);
     expect((await balances(db)).reduce((s, a) => s + a.balance, 0)).toBe(0);
+  });
+
+  it("reorder planner and stock history reflect real sales and nothing is guessed", async () => {
+    const fast = await mk(`cover-fast-${n}`, 100, 30);
+    const idle = await mk(`cover-idle-${n}`, 100, 30);
+    await ringUpSale(db, { items: [{ productId: fast, quantity: 15 }], discount: 0 }, "staff@test", k("cover"));
+    const rows = await stockCover(db);
+    const f = rows.find((r) => r.id === fast)!;
+    expect(f.stock).toBe(15);
+    expect(f.sold30).toBe(15);
+    expect(f.perDay).toBe(0.5);
+    expect(f.daysLeft).toBe(30);
+    expect(f.suggest).toBe(0);
+    const i = rows.find((r) => r.id === idle)!;
+    expect(i.daysLeft).toBeNull();
+    const hist = await stockMovementsReport(db, TODAY, TODAY);
+    expect(hist.some((h) => h.kind === "pos_sale" && h.qty === -15)).toBe(true);
   });
 });
