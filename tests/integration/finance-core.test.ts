@@ -227,6 +227,21 @@ describe("selling, revenue recognition and profit", () => {
     await recordRefund(db, id, 2000, "owner@test");
     expect(await bal(ACC.refunds)).toBe(2000);
   });
+
+  it("two separate returns of the same size each reverse their own cost of goods", async () => {
+    const o = await place(P.B, 2, "bank_transfer");
+    const id = await oid(o.orderNumber);
+    await setPaymentStatus(db, id, "paid", "staff@test");
+    await walk(id, TO_DELIVERED);
+    const line = (await db.query<{ id: string; unit_cost: string }>("select id, unit_cost from order_items where order_id = $1", [id]))[0];
+    const unit = Math.round(Number(line.unit_cost));
+    expect(unit).toBeGreaterThan(0);
+    const cogs = await bal(ACC.cogs);
+    await returnOrderGoods(db, id, [{ itemId: line.id, goodQty: 1 }], "staff@test");
+    await returnOrderGoods(db, id, [{ itemId: line.id, goodQty: 1 }], "staff@test");
+    expect(await bal(ACC.cogs)).toBe(cogs - 2 * unit);
+    expect(await ledgerIsBalanced(db)).toBe(true);
+  });
 });
 
 describe("reconciliation", () => {

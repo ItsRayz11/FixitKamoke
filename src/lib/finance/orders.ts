@@ -129,6 +129,7 @@ export async function returnOrderGoods(db: Db, orderId: string, returns: { itemI
     const o = await loadOrder(q, orderId);
     if (!(await isRecognized(q, orderId))) throw new FinanceError("Only a delivered order can have goods returned. Cancel the order instead.");
     let reverseCogs = 0;
+    const totals: string[] = [];
     for (const r of returns) {
       if (!Number.isSafeInteger(r.goodQty) || r.goodQty < 0) throw new FinanceError("Returned quantity must be zero or more.");
       if (r.goodQty === 0) continue;
@@ -144,9 +145,11 @@ export async function returnOrderGoods(db: Db, orderId: string, returns: { itemI
       }
       await q.query("update order_items set returned_qty = returned_qty + $2 where id = $1", [it.id, r.goodQty]);
       reverseCogs += Math.round(valuedThis * (cost ?? 0));
+      totals.push(`${it.id}=${it.returned_qty + r.goodQty}`);
     }
+    // Keyed by the running returned total per line, so a second return of the same size is a new posting, not a duplicate.
     await post(q, {
-      key: `order:${orderId}:cogs-return:${returns.map((r) => `${r.itemId}=${r.goodQty}`).sort().join(",")}:${o.refunded_amount}`,
+      key: `order:${orderId}:cogs-return:${totals.sort().join(",")}`,
       memo: `Goods returned: ${o.order_number}`, refType: "order", refId: orderId, actor,
       lines: [{ account: ACC.inventory, debit: reverseCogs }, { account: ACC.cogs, credit: reverseCogs }],
     });
